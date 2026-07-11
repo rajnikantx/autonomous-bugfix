@@ -8,7 +8,6 @@ from src.graph.workflow import graph
 if __name__ == "__main__":
     session_id = str(uuid.uuid4())
 
-
     initial_state = {
         "session_id": session_id,
         "settings": AgentSettings(

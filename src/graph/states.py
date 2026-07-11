@@ -1,4 +1,4 @@
-from typing import TypedDict, Literal, Optional
+from typing import TypedDict, Literal, Optional, NotRequired
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -60,26 +60,21 @@ class Corrected:
 class AgentState(TypedDict):
     session_id: str
     settings: AgentSettings
-
     repo_path: str
-    sandbox_path: str
 
-    pytest_bugs: list[PytestBug]
-    pending_bugs: list[PytestBug]
-    fixed_bugs: list[PytestBug]
-    escalated_bugs: list[PytestBug]
-    failed_bugs: list[PytestBug]
+    sandbox_path: NotRequired[str]
+    bug_report_path: NotRequired[str]
 
-    current_bug: Optional[PytestBug]
+    current_bug: NotRequired[Optional[PytestBug]]
 
-    root_cause: str
-    affected_files: list[str]
-    relevant_snippets: dict[str, str]
-    investigation_steps: list[str]
+    root_cause: NotRequired[str]
+    affected_files: NotRequired[list[str]]
+    relevant_snippets: NotRequired[dict[str, str]]
+    investigation_steps: NotRequired[list[str]]
 
-    fix_attempts: list[FixAttempt]
-    current_fix: Optional[FixAttempt]
+    fix_attempts: NotRequired[list[FixAttempt]]
+    current_fix: NotRequired[Optional[FixAttempt]]
 
-    status: Status
-    retry_count: int
-    error_message: str
+    status: NotRequired[Status]
+    retry_count: NotRequired[int]
+    error_message: NotRequired[str]

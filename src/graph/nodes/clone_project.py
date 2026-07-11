@@ -25,11 +25,11 @@ def clone_project(state: AgentState) -> dict:
     logger.info(f"Creating sandbox for repo: {repo_path}")
 
     try:
-        sandbox = tempfile.mkdtemp(prefix="bugfix_sandbox_")
+        sandbox_path = tempfile.mkdtemp(prefix="bugfix_sandbox_")
 
         shutil.copytree(
             repo_path,
-            sandbox,
+            sandbox_path,
             ignore=shutil.ignore_patterns(
                 ".git", "__pycache__", ".venv", "*.pyc",
                 ".pytest_cache", ".bugfix", "node_modules",
@@ -37,13 +37,9 @@ def clone_project(state: AgentState) -> dict:
             dirs_exist_ok=True,
         )
 
-        logger.success(f"Sandbox created at: {sandbox}")
+        logger.success(f"Sandbox created at: {sandbox_path}")
 
-        state["sandbox_path"] = sandbox
-        for key, value in state.items():
-            logger.info(f"  {key}: {value}")
-
-        return {"sandbox_path": sandbox}
+        return {"sandbox_path": sandbox_path}
 
     except Exception as e:
         logger.error(f"Failed to create sandbox: {e}")
