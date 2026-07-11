@@ -4,9 +4,9 @@ from datetime import datetime
 
 
 Severity = Literal["low", "medium", "high"]
-FailureType= Literal["IndexError", "AttributeError", "TypeError", "AssertionError","KeyError", "ValueError", "ImportError", "ModuleNotFoundError", "NameError"]
-FailureMode= Literal["FAILED", "ERROR"]
-Status = Literal["started", "indexing", "discovering", "triaging","investigating", "fixing", "testing", "reviewing","done", "escalated"]
+FailureType = Literal["IndexError", "AttributeError", "TypeError", "AssertionError", "KeyError", "ValueError", "ImportError", "ModuleNotFoundError", "NameError"]
+FailureMode = Literal["FAILED", "ERROR"]
+Status = Literal["started", "indexing", "discovering", "triaging", "investigating", "fixing", "testing", "reviewing", "done", "escalated"]
 
 
 @dataclass
@@ -37,7 +37,7 @@ class PytestBug:
     traceback: list[PytestBugTraceback]
     longrepr: str
     fixable: bool = False
-    escalation_reason: str
+    escalation_reason: str = ""
 
 @dataclass
 class FixAttempt:
@@ -46,7 +46,7 @@ class FixAttempt:
     new_code: str
     explanation: str
     passed: bool = False
-    test_output: str
+    test_output: str = ""
     review_rejected: bool = False
     review_objections: list[str] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat()) 
@@ -70,7 +70,7 @@ class AgentState(TypedDict):
     escalated_bugs: list[PytestBug]
     failed_bugs: list[PytestBug]
 
-    current_bug: list[PytestBug]
+    current_bug: Optional[PytestBug]
 
     root_cause: str
     affected_files: list[str]

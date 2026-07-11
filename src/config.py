@@ -1,13 +1,21 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ENV_PATH= Path(__file__).resolve().parent.parent / ".env"
+DIRECTORY_PATH = Path(__file__).resolve().parent.parent
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
-class settings(BaseSettings):
-    model_config= SettingsConfigDict(
-        env_file= str(ENV_PATH), 
-        env_file_encoding= "utf-8",
-        extra= "ignore"
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_PATH),
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
-    
+    REPO_PATH: str = str(DIRECTORY_PATH)
+    MODEL_NAME: str = "gpt-4o"
+    TEMPERATURE: float = 0.0
+    MAX_RETRIES: int = 3
+
+
+settings = Settings()
