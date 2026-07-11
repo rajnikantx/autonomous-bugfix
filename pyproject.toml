@@ -8,6 +8,7 @@ dependencies = [
     "ipynb>=0.5.1",
     "langgraph>=1.2.9",
     "loguru>=0.7.3",
+    "openai>=1.40.0",
     "pydantic-settings>=2.14.2",
     "pytest>=9.1.1",
 ]

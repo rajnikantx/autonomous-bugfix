@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     REPO_PATH: str = str(DIRECTORY_PATH)
     MODEL_NAME: str = "gpt-4o"
+    OPENAI_API_KEY: str = ""
     TEMPERATURE: float = 0.0
     MAX_RETRIES: int = 3
 
