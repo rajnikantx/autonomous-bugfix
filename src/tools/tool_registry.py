@@ -32,7 +32,7 @@ def _register(fn: Callable, *, category: str) -> None:
 
 
 # ── filesystem tools ───────────────────────────────────────────────────────────
-from tools.filesystem import (
+from src.tools.filesystem import (
     read_file,
     list_files,
     apply_fix,
@@ -51,7 +51,7 @@ _register(write_diff_file, category="filesystem")
 _register(write_escalation_file, category="filesystem")
 
 # ── codebase tools ─────────────────────────────────────────────────────────────
-from tools.codebase import (
+from src.tools.codebase import (
     grep_codebase,
     get_function_definition,
     get_class_definition,
@@ -66,7 +66,7 @@ _register(get_function_callers, category="codebase")
 _register(get_imports, category="codebase")
 
 # ── sandbox tools ──────────────────────────────────────────────────────────────
-from tools.sandbox import (
+from src.tools.sandbox import (
     create_sandbox,
     reset_sandbox,
     install_dependencies,

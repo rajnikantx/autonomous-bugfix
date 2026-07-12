@@ -17,8 +17,8 @@ import shutil
 import subprocess
 import tempfile
 
-from config import settings
-from tools.runner import PytestResult, _parse
+from src.config import settings
+from src.tools.runner import PytestResult, _parse
 
 
 # ── Sandbox lifecycle ─────────────────────────────────────────────────────────
