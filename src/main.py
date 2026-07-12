@@ -27,6 +27,13 @@ if __name__ == "__main__":
 
     result = graph.invoke(initial_state, config=config)
 
-    print("\n--- Final State ---")
-    for key, value in result.items():
-        print(f"{key}: {value}")
+    report = result.get("report_summary", "")
+    if report:
+        print("\n" + report)
+    else:
+        print("\n--- No report generated ---")
+
+    png_data = graph.get_graph().draw_mermaid_png()
+    with open("graph.png", "wb") as f:
+        f.write(png_data)
+    print("Graph saved to graph.png")

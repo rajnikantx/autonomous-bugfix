@@ -8,12 +8,7 @@ from src.graph.states import AgentState
 from src.agents.investigator import Investigator
 
 
-def investigate(state: AgentState) -> dict:
-    """
-    Investigate the current bug using a ReAct loop with tools.
-
-    Reads source files, traces call chains, and finds root cause.
-    """
+def agent_investigate(state: AgentState) -> dict:
     bug = state.get("current_bug")
     if not bug:
         logger.error("No current_bug set — cannot investigate")
@@ -27,10 +22,11 @@ def investigate(state: AgentState) -> dict:
     settings = state.get("settings")
     model = settings.model_name if settings else "gpt-4o"
     api_key = settings.openai_api_key if settings else ""
+    temperature = settings.temperature if settings else 0.0
 
     logger.info(f"Investigating: {bug.test_name} in {bug.source_file}")
 
-    investigator = Investigator(model=model, api_key=api_key)
+    investigator = Investigator(model=model, api_key=api_key, temperature=temperature)
 
     try:
         result = investigator.investigate(bug, sandbox)
@@ -41,10 +37,18 @@ def investigate(state: AgentState) -> dict:
     logger.success(f"Root cause found: {result.root_cause[:100]}")
     logger.info(f"Affected files: {result.affected_files}")
 
+    progress = dict(state.get("bug_progress", {}))
+    key = bug.test_name
+    if key in progress:
+        progress[key].root_cause = result.root_cause
+        progress[key].affected_files = result.affected_files
+        progress[key].relevant_snippets = result.relevant_snippets
+        progress[key].status = "investigating"
+
     return {
         "root_cause": result.root_cause,
         "affected_files": result.affected_files,
         "relevant_snippets": result.relevant_snippets,
-        "investigation_steps": result.investigation_steps,
         "status": "investigating",
+        "bug_progress": progress,
     }

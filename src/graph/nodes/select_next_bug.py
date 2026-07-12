@@ -8,18 +8,35 @@ from src.graph.states import AgentState
 
 
 def select_next_bug(state: AgentState) -> dict:
-    """
-    Pop the next bug from pending_bugs and set it as current_bug.
-    If no bugs remain, set current_bug to None.
-    """
+    current_bug = state.get("current_bug")
+    test_decision = state.get("test_decision", "")
     pending = state.get("pending_bugs", [])
+    fixed = list(state.get("fixed_bugs", []))
+    failed = list(state.get("failed_bugs", []))
+    progress = dict(state.get("bug_progress", {}))
+
+    if current_bug:
+        key = current_bug.test_name
+        if test_decision == "pass":
+            fixed.append(current_bug)
+            if key in progress:
+                progress[key].status = "done"
+            logger.info(f"Bug {key} marked as FIXED")
+        elif test_decision == "escalate":
+            failed.append(current_bug)
+            if key in progress:
+                progress[key].status = "failed"
+            logger.info(f"Bug {key} marked as FAILED")
 
     if not pending:
         logger.info("No pending bugs left")
-        return {"current_bug": None}
+        return {"current_bug": None, "current_bug_key": "", "fixed_bugs": fixed, "failed_bugs": failed, "bug_progress": progress}
 
     current = pending[0]
     remaining = pending[1:]
+
+    if current.test_name in progress:
+        progress[current.test_name].status = "investigating"
 
     logger.info(
         f"Selected bug: {current.test_name} in {current.test_file} "
@@ -28,5 +45,9 @@ def select_next_bug(state: AgentState) -> dict:
 
     return {
         "current_bug": current,
+        "current_bug_key": current.test_name,
         "pending_bugs": remaining,
+        "fixed_bugs": fixed,
+        "failed_bugs": failed,
+        "bug_progress": progress,
     }

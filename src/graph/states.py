@@ -1,6 +1,5 @@
 from typing import TypedDict, Literal, Optional, NotRequired
 from dataclasses import dataclass, field
-from datetime import datetime
 
 
 Severity = Literal["low", "medium", "high"]
@@ -44,10 +43,18 @@ class FixAttempt:
     new_code: str
     explanation: str
     passed: bool = False
-    test_output: str = ""
-    review_rejected: bool = False
-    review_objections: list[str] = field(default_factory=list)
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class BugProgress:
+    bug: PytestBug
+    root_cause: str = ""
+    affected_files: list[str] = field(default_factory=list)
+    relevant_snippets: dict[str, str] = field(default_factory=dict)
+    fix_attempts: list[FixAttempt] = field(default_factory=list)
+    review_history: list[dict] = field(default_factory=list)
+    test_history: list[dict] = field(default_factory=list)
+    status: str = "pending"
 
 
 class AgentState(TypedDict):
@@ -58,7 +65,6 @@ class AgentState(TypedDict):
     sandbox_path: NotRequired[str]
     bug_report_path: NotRequired[str]
 
-    pytest_bugs: NotRequired[list[PytestBug]]
     pending_bugs: NotRequired[list[PytestBug]]
     fixed_bugs: NotRequired[list[PytestBug]]
     escalated_bugs: NotRequired[list[PytestBug]]
@@ -68,12 +74,19 @@ class AgentState(TypedDict):
     root_cause: NotRequired[str]
     affected_files: NotRequired[list[str]]
     relevant_snippets: NotRequired[dict[str, str]]
-    investigation_steps: NotRequired[list[str]]
 
-    fix_attempts: NotRequired[list[FixAttempt]]
     current_fix: NotRequired[Optional[FixAttempt]]
+
+    test_decision: NotRequired[str]
+    test_output: NotRequired[str]
+    review_decision: NotRequired[str]
+    review_objections: NotRequired[list[str]]
+
+    report_summary: NotRequired[str]
 
     status: NotRequired[Status]
     retry_count: NotRequired[int]
     error_message: NotRequired[str]
-    fix_count: NotRequired[int]
+
+    bug_progress: NotRequired[dict[str, BugProgress]]
+    current_bug_key: NotRequired[str]

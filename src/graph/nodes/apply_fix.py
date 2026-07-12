@@ -9,11 +9,6 @@ from src.tools.filesystem import apply_fix_to_sandbox
 
 
 def apply_fix(state: AgentState) -> dict:
-    """
-    Apply the proposed fix to the sandbox.
-
-    Uses apply_fix_to_sandbox to replace old_code with new_code.
-    """
     current_fix = state.get("current_fix")
     if not current_fix:
         logger.error("No current_fix set — cannot apply fix")
@@ -50,4 +45,11 @@ def apply_fix(state: AgentState) -> dict:
     logger.success(f"Fix applied: {result}")
     current_fix.passed = True
 
-    return {"current_fix": current_fix}
+    progress = dict(state.get("bug_progress", {}))
+    bug = state.get("current_bug")
+    if bug and bug.test_name in progress:
+        attempts = progress[bug.test_name].fix_attempts
+        if attempts:
+            attempts[-1].passed = True
+
+    return {"current_fix": current_fix, "bug_progress": progress}

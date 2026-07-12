@@ -11,4 +11,5 @@ dependencies = [
     "openai>=1.40.0",
     "pydantic-settings>=2.14.2",
     "pytest>=9.1.1",
+    "grandalf>=0.8",
 ]

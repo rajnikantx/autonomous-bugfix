@@ -1,8 +1,7 @@
 """
 tools/sandbox.py
 
-Tools: create_sandbox, reset_sandbox, install_dependencies,
-       run_pytest_in_sandbox
+Tools: install_dependencies, run_pytest_in_sandbox
 
 Rules:
   - All test execution happens here — never on the real repo
@@ -13,62 +12,12 @@ Rules:
 
 from __future__ import annotations
 import os
-import shutil
 import subprocess
-import tempfile
 
 from src.config import settings
 from src.tools.runner import PytestResult, _parse
 
-
 # ── Sandbox lifecycle ─────────────────────────────────────────────────────────
-
-def create_sandbox(repo_path: str) -> str:
-    """
-    Copy the entire repo into a fresh temp directory.
-
-    Returns the sandbox_path (absolute) on success.
-    Returns "ERROR: ..." on failure.
-
-    Called once by main.py at startup. The returned path is stored in
-    AgentState.sandbox_path and used by all agents for the rest of the run.
-    """
-    if not os.path.isdir(repo_path):
-        return f"ERROR: repo_path does not exist or is not a directory: {repo_path}"
-
-    try:
-        # Use a fixed prefix so logs are easy to identify
-        sandbox = tempfile.mkdtemp(prefix="bugfix_sandbox_")
-        dest    = os.path.join(sandbox, "repo")
-        shutil.copytree(repo_path, dest)
-        return dest   # return the inner "repo" dir as the sandbox root
-    except Exception as e:
-        return f"ERROR creating sandbox: {e}"
-
-
-def reset_sandbox(repo_path: str, sandbox_path: str) -> str:
-    """
-    Wipe the sandbox and re-copy from the original repo.
-
-    Called by Test Agent before every retry to ensure previous failed
-    fix attempts don't accumulate and corrupt the next attempt.
-
-    Returns "OK: ..." on success, "ERROR: ..." on failure.
-    """
-    if not os.path.isdir(repo_path):
-        return f"ERROR: original repo not found: {repo_path}"
-
-    try:
-        # Remove the existing sandbox content
-        if os.path.exists(sandbox_path):
-            shutil.rmtree(sandbox_path)
-
-        # Re-copy from original
-        shutil.copytree(repo_path, sandbox_path)
-        return f"OK: sandbox reset from {repo_path}"
-    except Exception as e:
-        return f"ERROR resetting sandbox: {e}"
-
 
 def install_dependencies(sandbox_path: str, timeout: int = 120) -> str:
     """

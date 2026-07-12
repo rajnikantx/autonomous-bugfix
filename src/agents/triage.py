@@ -46,9 +46,10 @@ class TriageResult(BaseModel):
 
 class Triage:
 
-    def __init__(self, model: str = "gpt-4o", api_key: str = ""):
+    def __init__(self, model: str = "gpt-4o", api_key: str = "", temperature: float = 0.0):
         self.model = model
         self.client = OpenAI(api_key=api_key)
+        self.temperature = temperature
 
     def get_triage_json(self, report_content: str) -> list[BugReport]:
         user_prompt = TRIAGE_USER.format(report=report_content)
@@ -61,6 +62,7 @@ class Triage:
                 {"role": "user", "content": user_prompt},
             ],
             response_format=TriageResult,
+            temperature=self.temperature,
         )
 
         result = response.choices[0].message.parsed

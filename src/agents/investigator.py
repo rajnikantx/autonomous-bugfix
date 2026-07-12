@@ -173,10 +173,11 @@ class InvestigationResult(BaseModel):
 
 class Investigator:
 
-    def __init__(self, model: str = "gpt-4o", api_key: str = "", max_steps: int = 10):
+    def __init__(self, model: str = "gpt-4o", api_key: str = "", max_steps: int = 10, temperature: float = 0.0):
         self.model = model
         self.client = OpenAI(api_key=api_key)
         self.max_steps = max_steps
+        self.temperature = temperature
 
     def _execute_tool(self, name: str, args: dict, sandbox: str) -> str:
         func = TOOL_MAP.get(name)
@@ -234,6 +235,7 @@ class Investigator:
                 model=self.model,
                 messages=messages,
                 tools=INVESTIGATOR_TOOLS,
+                temperature=self.temperature,
             )
 
             msg = response.choices[0].message
@@ -283,3 +285,40 @@ class Investigator:
             relevant_snippets={},
             investigation_steps=steps_log,
         )
+
+    def answer_question(self, question: str, sandbox: str, context: str = "") -> str:
+        """
+        Answer a specific question from the Fixer agent.
+        Used for inter-agent feedback loop.
+        """
+        messages = [
+            {"role": "system", "content": INVESTIGATE_SYSTEM},
+            {"role": "user", "content": f"## Question from Fix Agent\n\n{question}\n\n{context}\n\nAnswer this question by reading the relevant files. Be concise."},
+        ]
+
+        for step in range(5):
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=INVESTIGATOR_TOOLS,
+                temperature=self.temperature,
+            )
+
+            msg = response.choices[0].message
+
+            if not msg.tool_calls:
+                return msg.content
+
+            messages.append(msg)
+
+            for tool_call in msg.tool_calls:
+                name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+                result = self._execute_tool(name, args, sandbox)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result,
+                })
+
+        return "Could not answer question within step limit"

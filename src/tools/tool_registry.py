@@ -37,18 +37,12 @@ from src.tools.filesystem import (
     list_files,
     apply_fix,
     apply_fix_to_sandbox,
-    write_bug_report,
-    write_diff_file,
-    write_escalation_file,
 )
 
 _register(read_file, category="filesystem")
 _register(list_files, category="filesystem")
 _register(apply_fix, category="filesystem")
 _register(apply_fix_to_sandbox, category="filesystem")
-_register(write_bug_report, category="filesystem")
-_register(write_diff_file, category="filesystem")
-_register(write_escalation_file, category="filesystem")
 
 # ── codebase tools ─────────────────────────────────────────────────────────────
 from src.tools.codebase import (
@@ -67,14 +61,10 @@ _register(get_imports, category="codebase")
 
 # ── sandbox tools ──────────────────────────────────────────────────────────────
 from src.tools.sandbox import (
-    create_sandbox,
-    reset_sandbox,
     install_dependencies,
     run_pytest_in_sandbox,
 )
 
-_register(create_sandbox, category="sandbox")
-_register(reset_sandbox, category="sandbox")
 _register(install_dependencies, category="sandbox")
 _register(run_pytest_in_sandbox, category="sandbox")
 
@@ -113,12 +103,7 @@ def get_categories() -> list[str]:
 
 
 AGENT_TOOLS: dict[str, list[str]] = {
-    "triage": [
-        "list_files",
-        "read_file",
-        "grep_codebase",
-        "run_pytest_in_sandbox",
-    ],
+    "triage": [],
     "investigator": [
         "read_file",
         "grep_codebase",
@@ -129,12 +114,10 @@ AGENT_TOOLS: dict[str, list[str]] = {
     ],
     "fixer": [
         "read_file",
-        "apply_fix_to_sandbox",
     ],
     "tester": [
         "install_dependencies",
         "run_pytest_in_sandbox",
-        "reset_sandbox",
     ],
     "reviewer": [
         "read_file",

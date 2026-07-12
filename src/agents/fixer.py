@@ -8,6 +8,7 @@ from loguru import logger
 
 from src.tools.filesystem import read_file
 from src.tools.tool_registry import get_agent_tools
+from src.agents.investigator import Investigator
 
 
 FIX_SYSTEM = """\
@@ -17,12 +18,13 @@ You are an expert code fixer. Given a bug report, root cause analysis, and sourc
 
 1. Read the affected source file using the `read_file` tool.
 2. Identify the exact lines that need to change.
-3. Generate a fix that:
+3. If you need more context about how a function is used or what calls it, use `ask_investigator` to get more information.
+4. Generate a fix that:
    - Changes the MINIMUM amount of code necessary.
    - Preserves existing code style and conventions.
    - Does not add unrelated changes.
    - Handles edge cases mentioned in the investigation.
-4. Your fix will be applied as a string replacement — `old_code` must appear EXACTLY ONCE in the file.
+5. Your fix will be applied as a string replacement — `old_code` must appear EXACTLY ONCE in the file.
 
 ## Output
 
@@ -69,6 +71,24 @@ def _generate_tool_schemas(agent_name: str) -> list[dict]:
 
 FIXER_TOOLS = _generate_tool_schemas("fixer")
 
+FIXER_TOOLS.append({
+    "type": "function",
+    "function": {
+        "name": "ask_investigator",
+        "description": "Ask the Investigator agent a question about the codebase. Use this when you need more context about how a function is used, what calls it, or where a symbol comes from.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The question to ask the investigator",
+                }
+            },
+            "required": ["question"],
+        },
+    },
+})
+
 
 class FixResult(BaseModel):
     file_path: str
@@ -79,15 +99,22 @@ class FixResult(BaseModel):
 
 class Fixer:
 
-    def __init__(self, model: str = "gpt-4o", api_key: str = "", max_steps: int = 5):
+    def __init__(self, model: str = "gpt-4o", api_key: str = "", max_steps: int = 5, temperature: float = 0.0):
         self.model = model
         self.client = OpenAI(api_key=api_key)
         self.max_steps = max_steps
+        self.temperature = temperature
         self._tool_map = {
             "read_file": read_file,
         }
+        self._investigator = Investigator(model=model, api_key=api_key, temperature=temperature)
 
     def _execute_tool(self, name: str, args: dict, sandbox: str) -> str:
+        if name == "ask_investigator":
+            question = args.get("question", "")
+            logger.info(f"  Asking investigator: {question}")
+            return self._investigator.answer_question(question, sandbox)
+
         func = self._tool_map.get(name)
         if not func:
             return f"ERROR: unknown tool '{name}'"
@@ -145,6 +172,7 @@ class Fixer:
                 model=self.model,
                 messages=messages,
                 tools=FIXER_TOOLS,
+                temperature=self.temperature,
             )
 
             msg = response.choices[0].message
