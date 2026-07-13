@@ -1,51 +1,34 @@
-import shutil
 import tempfile
-import sys
+import shutil
 from pathlib import Path
-
 from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from src.graph.states import AgentState
 
-
-def clone_project(state: AgentState) -> dict:
+def clone_project(state: AgentState):
     """
-    Validate repo_path and create a sandbox copy for safe modification.
-
-    1. Confirm repo_path exists and is a directory.
-    2. Copy the repo into a temp sandbox, ignoring heavy/irrelevant dirs.
-    3. Return updated state with sandbox_path set.
+    clone project in sandbox.
     """
     repo_path = state["repo_path"]
-
     if not Path(repo_path).is_dir():
-        raise ValueError(f"repo_path is not a valid directory: {repo_path}")
-
-    logger.info(f"Creating sandbox for repo: {repo_path}")
-
+        logger.error(f"INVALID repository path: {repo_path}")
+        raise FileNotFoundError(f"INVALID repo_path: {repo_path}")
+    
+    logger.info("creating sandbox")
     try:
-        sandbox_path = tempfile.mkdtemp(prefix="bugfix_sandbox_")
-
+        sandbox_path= tempfile.mkdtemp(prefix="bugfix_")
         shutil.copytree(
             repo_path,
             sandbox_path,
-            ignore=shutil.ignore_patterns(
-                ".git", "__pycache__", ".venv", "*.pyc",
-                ".pytest_cache", ".bugfix", "node_modules",
-            ),
-            dirs_exist_ok=True,
+            dirs_exist_ok=True
         )
-
-        logger.success(f"Sandbox created at: {sandbox_path}")
-
-        return {"sandbox_path": sandbox_path}
+        logger.info(f"sandbox created successfully at {sandbox_path}")
 
     except Exception as e:
-        logger.error(f"Failed to create sandbox: {e}")
-        raise
+        shutil.rmtree(sandbox_path, ignore_errors=True)
+        logger.error(f"sandbox creation failed for {repo_path}")
 
-
-if __name__ == "__main__":
-    result = clone_project({"repo_path": str(Path(__file__).resolve().parents[3])})
-    print(f"\nResult: {result}")
+    return {
+        **state,
+        "sandbox_path":sandbox_path
+    }
