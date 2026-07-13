@@ -2,11 +2,13 @@ import json
 import uuid
 from pathlib import Path
 from loguru import logger
+from langsmith import traceable
 
 from src.graph.states import AgentState, FailureReport, Bug
 from src.agents.triage import Triage
 
 
+@traceable(run_type="chain", name="triage", project_name="autonomous bugfix")
 def triage(state: AgentState):
     """
     Read the pytest JSON report, pass it through the Triage agent,

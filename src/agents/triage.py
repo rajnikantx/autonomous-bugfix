@@ -2,6 +2,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 from typing import Literal
 from loguru import logger
+from langsmith import traceable
 
 from src.config import settings
 
@@ -54,26 +55,18 @@ class TriageResult(BaseModel):
     bugs: list[BugReport] = Field(description="List of bugs extracted from the pytest report. Empty array if no failures.")
 
 
+def _process_triage_output(output):
+    if output is None:
+        return None
+    return {"bugs": [b.model_dump() for b in output.bugs]}
+
+
 class Triage:
     def __init__(self):
         self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
         self._model = settings.TRIAGE_MODEL
 
-    def _call_api(self, report_content: str):
-        return self._client.responses.parse(
-            model=self._model,
-            instructions=TRIAGE_SYSTEM,
-            input=TRIAGE_USER.format(report=report_content),
-            text_format=TriageResult,
-        )
-
-    def _parse_response(self, response) -> TriageResult | None:
-        result = response.output_parsed
-        if result is None:
-            logger.warning("LLM returned empty parsed result")
-            return None
-        return result
-
+    @traceable(run_type="llm", name="triage_llm_call", project_name="autonomous bugfix", process_outputs=_process_triage_output)
     def json_bugs(self, bugreport_content: str) -> TriageResult | None:
         """Extract structured bug reports from pytest output using the OpenAI Responses API.
 
@@ -86,12 +79,19 @@ class Triage:
         logger.info("Extracting structured bug report via OpenAI Responses API")
 
         try:
-            response = self._call_api(bugreport_content)
-            result = self._parse_response(response)
+            response = self._client.responses.parse(
+                model=self._model,
+                instructions=TRIAGE_SYSTEM,
+                input=TRIAGE_USER.format(report=bugreport_content),
+                text_format=TriageResult,
+            )
 
-            if result is not None:
-                logger.info(f"Extracted {len(result.bugs)} bug(s)")
+            result = response.output_parsed
+            if result is None:
+                logger.warning("LLM returned empty parsed result")
+                return None
 
+            logger.info(f"Extracted {len(result.bugs)} bug(s)")
             return result
 
         except Exception as e:

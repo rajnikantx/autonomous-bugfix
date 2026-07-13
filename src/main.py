@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import uuid
 
 from src.graph.workflow import workflow

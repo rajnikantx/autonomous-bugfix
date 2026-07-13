@@ -1,12 +1,15 @@
 import subprocess
 from pathlib import Path
 from loguru import logger
+from langsmith import traceable
 
 from src.graph.states import AgentState
 
 BUG_REPORT_DIR= "bug_report"
 PYTEST_BUGREPORT_FILE= "pytest_bugreport.json"
 
+
+@traceable(run_type="chain", name="scan_bugs", project_name="autonomous bugfix")
 def scan_bugs(state: AgentState):
     """
     run pytest command to get the bug report for pytest.
