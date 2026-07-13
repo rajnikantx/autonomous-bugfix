@@ -6,7 +6,7 @@ from src.config import settings
 session_id = str(uuid.uuid4())
 
 initial_state = {
-    "repo_path": settings.repo_path
+    "repo_path": settings.REPO_PATH
 }
 
 config = {

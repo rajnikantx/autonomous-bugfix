@@ -6,8 +6,9 @@ class Settings(BaseSettings):
         "env_file": ".env", 
         "extra": "ignore"
     }
-    
-    repo_path: str
+    OPENAI_API_KEY: str
+    REPO_PATH: str
+    TRIAGE_MODEL: str = "gpt-4o"
 
 
 settings = Settings()
