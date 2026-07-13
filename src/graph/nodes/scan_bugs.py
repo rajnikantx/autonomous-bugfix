@@ -9,7 +9,11 @@ BUG_REPORT_DIR= "bug_report"
 PYTEST_BUGREPORT_FILE= "pytest_bugreport.json"
 
 
-@traceable(run_type="chain", name="scan_bugs", project_name="autonomous bugfix")
+def _process_scan_output(output):
+    return {"bugreport_path": str(output.get("bugreport_path", ""))}
+
+
+@traceable(run_type="chain", name="scan_bugs", project_name="autonomous bugfix", process_outputs=_process_scan_output)
 def scan_bugs(state: AgentState):
     """
     run pytest command to get the bug report for pytest.

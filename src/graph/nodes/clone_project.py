@@ -7,7 +7,11 @@ from langsmith import traceable
 from src.graph.states import AgentState
 
 
-@traceable(run_type="chain", name="clone_project", project_name="autonomous bugfix")
+def _process_clone_output(output):
+    return {"sandbox_path": str(output.get("sandbox_path", ""))}
+
+
+@traceable(run_type="chain", name="clone_project", project_name="autonomous bugfix", process_outputs=_process_clone_output)
 def clone_project(state: AgentState):
     """
     clone project in sandbox.

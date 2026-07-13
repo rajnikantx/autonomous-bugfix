@@ -14,7 +14,6 @@ class FailureReport:
 
 @dataclass
 class Bug:
-    bug_id: str
     status: Literal[
         "pending", "investigating", "patching", "testing",
         "reviewing", "resolved", "escalated", "wontfix", "rejected"
@@ -27,3 +26,4 @@ class AgentState(TypedDict):
     bugreport_path: str
 
     bugs: list[Bug]
+    active_bug: Bug

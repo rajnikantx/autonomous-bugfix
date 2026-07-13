@@ -1,5 +1,4 @@
 import json
-import uuid
 from pathlib import Path
 from loguru import logger
 from langsmith import traceable
@@ -8,7 +7,11 @@ from src.graph.states import AgentState, FailureReport, Bug
 from src.agents.triage import Triage
 
 
-@traceable(run_type="chain", name="triage", project_name="autonomous bugfix")
+def _process_triage_output(output):
+    bugs = output.get("bugs", [])
+    return {"bug_count": len(bugs)}
+
+@traceable(run_type="chain", name="triage", project_name="autonomous bugfix", process_outputs=_process_triage_output)
 def triage(state: AgentState):
     """
     Read the pytest JSON report, pass it through the Triage agent,
@@ -46,7 +49,11 @@ def triage(state: AgentState):
             severity=bug_report.severity,
             auto_fixable=bug_report.fixable,
         )
-        bug = Bug(bug_id=str(uuid.uuid4()), report=report)
+
+        bug = Bug(
+            status="pending", 
+            report=report
+        )
         bugs.append(bug)
 
     logger.info(f"Created {len(bugs)} bug(s)")
