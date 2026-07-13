@@ -1,6 +1,7 @@
-from typing import TypedDict, Optional
+from typing import TypedDict
 
 
 class AgentState(TypedDict):
     repo_path: str
-    sandbox_path: Optional[str] = None
+    sandbox_path: str
+    bugreport_path: str
