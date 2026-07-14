@@ -51,5 +51,5 @@ def scan_bugs(state: AgentState):
 
     return {
         **state,
-        "bugreport_path": bugreport_path
+        "bugreport_path": str(bugreport_path)
     }

@@ -9,6 +9,6 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     REPO_PATH: str
     TRIAGE_MODEL: str = "gpt-4o"
-
+    INVESTIGATE_MODEL: str = "gpt-4o"
 
 settings = Settings()

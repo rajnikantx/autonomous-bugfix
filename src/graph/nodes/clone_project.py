@@ -33,7 +33,8 @@ def clone_project(state: AgentState):
 
     except Exception as e:
         shutil.rmtree(sandbox_path, ignore_errors=True)
-        logger.error(f"sandbox creation failed for {repo_path}")
+        logger.exception(f"sandbox creation failed for {repo_path}")
+        raise
 
     return {
         **state,

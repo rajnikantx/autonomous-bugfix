@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 from loguru import logger
 from langsmith import traceable
@@ -51,8 +52,9 @@ def triage(state: AgentState):
         )
 
         bug = Bug(
-            status="pending", 
-            report=report
+            bug_id=f"{report.test_name} :: {report.test_file}",
+            status="pending",
+            report=report,
         )
         bugs.append(bug)
 
