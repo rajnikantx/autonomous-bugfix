@@ -1,0 +1,81 @@
+{
+  "bugreport_path": "/tmp/bugfix_hgva5nwj/bug_report/pytest_bugreport.json",
+  "bug_count": 15,
+  "bugs": [
+    {
+      "bug_id": "test_add_positive :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_add_positive"
+    },
+    {
+      "bug_id": "test_add_negative :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_add_negative"
+    },
+    {
+      "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_subtract_positive"
+    },
+    {
+      "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_subtract_negative_result"
+    },
+    {
+      "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_multiply_by_zero"
+    },
+    {
+      "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_multiply_zero_by_zero"
+    },
+    {
+      "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_divide_by_zero"
+    },
+    {
+      "bug_id": "test_power_basic :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_power_basic"
+    },
+    {
+      "bug_id": "test_power_one :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_power_one"
+    },
+    {
+      "bug_id": "test_is_prime_1 :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_is_prime_1"
+    },
+    {
+      "bug_id": "test_is_prime_0 :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_is_prime_0"
+    },
+    {
+      "bug_id": "test_is_prime_negative :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_is_prime_negative"
+    },
+    {
+      "bug_id": "test_fib_0 :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_fib_0"
+    },
+    {
+      "bug_id": "test_parse_invalid :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_parse_invalid"
+    },
+    {
+      "bug_id": "test_parse_none :: tests/test_calculator.py",
+      "status": "pending",
+      "test_name": "test_parse_none"
+    }
+  ]
+}

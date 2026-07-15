@@ -6,6 +6,7 @@ from langsmith import traceable
 
 from src.graph.states import AgentState, FailureReport, Bug
 from src.agents.triage import Triage
+from src.step_logger import save_step_output
 
 
 def _process_triage_output(output):
@@ -59,6 +60,16 @@ def triage(state: AgentState):
         bugs.append(bug)
 
     logger.info(f"Created {len(bugs)} bug(s)")
+
+    save_step_output(state["session_id"], "triage", {
+        "bugreport_path": str(bugreport_path),
+        "bug_count": len(bugs),
+        "bugs": [
+            {"bug_id": b.bug_id, "status": b.status, "test_name": b.report.test_name if b.report else None}
+            for b in bugs
+        ],
+    })
+
     return {
         **state, 
         "bugs": bugs

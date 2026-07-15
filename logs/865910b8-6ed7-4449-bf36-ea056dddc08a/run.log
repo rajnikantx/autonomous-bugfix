@@ -1,0 +1,68 @@
+2026-07-15 19:18:16.249 | INFO     | src.step_logger:init_logging:30 - Logging initialized for session 865910b8-6ed7-4449-bf36-ea056dddc08a at logs/865910b8-6ed7-4449-bf36-ea056dddc08a
+2026-07-15 19:18:16.264 | INFO     | src.graph.nodes.clone_project:clone_project:26 - creating sandbox
+2026-07-15 19:18:17.138 | INFO     | src.graph.nodes.clone_project:clone_project:32 - sandbox created successfully at /tmp/bugfix_7gtufzug/test-repo
+2026-07-15 19:18:17.139 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191817_clone_project.json
+2026-07-15 19:18:17.140 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:36 - generating pytest bug report at : /tmp/bugfix_7gtufzug/test-repo/bug_report/pytest_bugreport.json
+2026-07-15 19:18:17.842 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:46 - Tests failed or non-zero exit — pytest bug report may contain failures
+2026-07-15 19:18:17.842 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:47 - pytest bug report generated at /tmp/bugfix_7gtufzug/test-repo/bug_report/pytest_bugreport.json
+2026-07-15 19:18:17.843 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191817_scan_bugs.json
+2026-07-15 19:18:17.882 | INFO     | src.agents.triage:json_bugs:79 - Extracting structured bug report via OpenAI Responses API
+2026-07-15 19:18:30.809 | INFO     | src.agents.triage:json_bugs:94 - Extracted 15 bug(s)
+2026-07-15 19:18:30.809 | INFO     | src.graph.nodes.triage:triage:62 - Created 15 bug(s)
+2026-07-15 19:18:30.809 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191830_triage.json
+2026-07-15 19:18:30.810 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_add_positive :: tests/test_calculator.py
+2026-07-15 19:18:30.810 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191830_select_bug.json
+2026-07-15 19:18:30.811 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:30.811 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_add_positive :: tests/test_calculator.py, status=investigating, test=test_add_positive, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:30.811 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_add_positive :: tests/test_calculator.py: test_add_positive
+2026-07-15 19:18:30.817 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_add_positive :: tests/test_calculator.py
+2026-07-15 19:18:35.246 | INFO     | src.agents.investigate:investigate:418 - Investigation complete
+2026-07-15 19:18:35.699 | ERROR    | src.agents.investigate:_extract_investigation:497 - Structured extraction failed: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'InvestigationOutput': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Extra required key 'affected_lines' supplied.", 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
+2026-07-15 19:18:35.699 | WARNING  | src.graph.nodes.investigate:investigate_node:53 - No investigation results for test_add_positive :: tests/test_calculator.py
+2026-07-15 19:18:35.699 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191835_investigate.json
+2026-07-15 19:18:35.702 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_add_negative :: tests/test_calculator.py
+2026-07-15 19:18:35.702 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191835_select_bug.json
+2026-07-15 19:18:35.704 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:35.704 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_add_negative :: tests/test_calculator.py, status=investigating, test=test_add_negative, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:35.704 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_add_negative :: tests/test_calculator.py: test_add_negative
+2026-07-15 19:18:35.714 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_add_negative :: tests/test_calculator.py
+2026-07-15 19:18:40.298 | INFO     | src.agents.investigate:investigate:418 - Investigation complete
+2026-07-15 19:18:41.239 | ERROR    | src.agents.investigate:_extract_investigation:497 - Structured extraction failed: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'InvestigationOutput': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Extra required key 'affected_lines' supplied.", 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
+2026-07-15 19:18:41.239 | WARNING  | src.graph.nodes.investigate:investigate_node:53 - No investigation results for test_add_negative :: tests/test_calculator.py
+2026-07-15 19:18:41.240 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191841_investigate.json
+2026-07-15 19:18:41.243 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_subtract_positive :: tests/test_calculator.py
+2026-07-15 19:18:41.243 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191841_select_bug.json
+2026-07-15 19:18:41.245 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:41.245 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_subtract_positive :: tests/test_calculator.py, status=investigating, test=test_subtract_positive, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:41.245 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_subtract_positive :: tests/test_calculator.py: test_subtract_positive
+2026-07-15 19:18:41.249 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_subtract_positive :: tests/test_calculator.py
+2026-07-15 19:18:45.553 | INFO     | src.agents.investigate:investigate:418 - Investigation complete
+2026-07-15 19:18:46.116 | ERROR    | src.agents.investigate:_extract_investigation:497 - Structured extraction failed: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'InvestigationOutput': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Extra required key 'affected_lines' supplied.", 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
+2026-07-15 19:18:46.116 | WARNING  | src.graph.nodes.investigate:investigate_node:53 - No investigation results for test_subtract_positive :: tests/test_calculator.py
+2026-07-15 19:18:46.117 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191846_investigate.json
+2026-07-15 19:18:46.118 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_subtract_negative_result :: tests/test_calculator.py
+2026-07-15 19:18:46.120 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191846_select_bug.json
+2026-07-15 19:18:46.122 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:46.122 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_subtract_negative_result :: tests/test_calculator.py, status=investigating, test=test_subtract_negative_result, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:46.122 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_subtract_negative_result :: tests/test_calculator.py: test_subtract_negative_result
+2026-07-15 19:18:46.126 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_subtract_negative_result :: tests/test_calculator.py
+2026-07-15 19:18:52.593 | INFO     | src.agents.investigate:investigate:418 - Investigation complete
+2026-07-15 19:18:53.250 | ERROR    | src.agents.investigate:_extract_investigation:497 - Structured extraction failed: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'InvestigationOutput': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Extra required key 'affected_lines' supplied.", 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
+2026-07-15 19:18:53.250 | WARNING  | src.graph.nodes.investigate:investigate_node:53 - No investigation results for test_subtract_negative_result :: tests/test_calculator.py
+2026-07-15 19:18:53.250 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191853_investigate.json
+2026-07-15 19:18:53.252 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_multiply_by_zero :: tests/test_calculator.py
+2026-07-15 19:18:53.252 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191853_select_bug.json
+2026-07-15 19:18:53.253 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:53.253 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_multiply_by_zero :: tests/test_calculator.py, status=investigating, test=test_multiply_by_zero, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:53.253 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_multiply_by_zero :: tests/test_calculator.py: test_multiply_by_zero
+2026-07-15 19:18:53.261 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_multiply_by_zero :: tests/test_calculator.py
+2026-07-15 19:18:57.568 | INFO     | src.agents.investigate:investigate:418 - Investigation complete
+2026-07-15 19:18:58.509 | ERROR    | src.agents.investigate:_extract_investigation:497 - Structured extraction failed: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'InvestigationOutput': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Extra required key 'affected_lines' supplied.", 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
+2026-07-15 19:18:58.509 | WARNING  | src.graph.nodes.investigate:investigate_node:53 - No investigation results for test_multiply_by_zero :: tests/test_calculator.py
+2026-07-15 19:18:58.510 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191858_investigate.json
+2026-07-15 19:18:58.512 | INFO     | src.graph.nodes.select_bug:select_bug:17 - Selected bug: test_multiply_zero_by_zero :: tests/test_calculator.py
+2026-07-15 19:18:58.513 | DEBUG    | src.step_logger:save_step_output:47 - Step output saved: logs/865910b8-6ed7-4449-bf36-ea056dddc08a/20260715_191858_select_bug.json
+2026-07-15 19:18:58.515 | INFO     | src.graph.nodes.investigate:investigate_node:22 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-15 19:18:58.515 | INFO     | src.graph.nodes.investigate:investigate_node:32 - Active bug: id=test_multiply_zero_by_zero :: tests/test_calculator.py, status=investigating, test=test_multiply_zero_by_zero, file=tests/test_calculator.py, severity=medium
+2026-07-15 19:18:58.515 | INFO     | src.graph.nodes.investigate:investigate_node:38 - Investigating bug test_multiply_zero_by_zero :: tests/test_calculator.py: test_multiply_zero_by_zero
+2026-07-15 19:18:58.520 | INFO     | src.agents.investigate:investigate:373 - Investigating bug_id: test_multiply_zero_by_zero :: tests/test_calculator.py

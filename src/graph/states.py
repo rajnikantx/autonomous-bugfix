@@ -27,6 +27,13 @@ class InvestigationResult:
     confidence: Literal["high", "medium", "low"] = "low"
     reasoning_trace: list[str] = field(default_factory=list)
 
+@dataclass
+class CodeChange:
+    file_path: str
+    old_code: str
+    new_code: str
+    description: str
+
 
 @dataclass
 class Bug:
@@ -40,8 +47,10 @@ class Bug:
 
 
 class AgentState(TypedDict, total=False):
+    session_id: str
     repo_path: str
     sandbox_path: str
     bugreport_path: str
     bugs: list[Bug]
     active_bug: Bug | None
+    pending_fix: list[CodeChange] | None

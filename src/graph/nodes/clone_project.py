@@ -1,3 +1,4 @@
+import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -5,6 +6,7 @@ from loguru import logger
 from langsmith import traceable
 
 from src.graph.states import AgentState
+from src.step_logger import save_step_output
 
 
 def _process_clone_output(output):
@@ -20,23 +22,30 @@ def clone_project(state: AgentState):
     if not Path(repo_path).is_dir():
         logger.error(f"INVALID repository path: {repo_path}")
         raise FileNotFoundError(f"INVALID repo_path: {repo_path}")
-    
+
     logger.info("creating sandbox")
     try:
-        sandbox_path= tempfile.mkdtemp(prefix="bugfix_")
-        shutil.copytree(
-            repo_path,
-            sandbox_path,
-            dirs_exist_ok=True
-        )
+        parent = tempfile.mkdtemp(prefix="bugfix_")
+        repo_name = Path(repo_path).name
+        sandbox_path = os.path.join(parent, repo_name)
+        shutil.copytree(repo_path, sandbox_path)
         logger.info(f"sandbox created successfully at {sandbox_path}")
 
     except Exception as e:
-        shutil.rmtree(sandbox_path, ignore_errors=True)
+        # clean up parent temp directory on failure
+        if "parent" in locals():
+            shutil.rmtree(parent, ignore_errors=True)
         logger.exception(f"sandbox creation failed for {repo_path}")
         raise
 
-    return {
+    result = {
         **state,
-        "sandbox_path":sandbox_path
+        "sandbox_path": sandbox_path,
     }
+
+    save_step_output(state["session_id"], "clone_project", {
+        "repo_path": repo_path,
+        "sandbox_path": sandbox_path,
+    })
+
+    return result

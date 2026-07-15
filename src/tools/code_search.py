@@ -201,7 +201,7 @@ def _extract_function_from_file(
     except Exception:
         return None
 
-    for node in ast.walk(tree):
+    for node in ast.iter_child_nodes(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         if node.name != name:
@@ -270,7 +270,7 @@ def _extract_class_from_file(
     except Exception:
         return None
 
-    for node in ast.walk(tree):
+    for node in ast.iter_child_nodes(tree):
         if not isinstance(node, ast.ClassDef):
             continue
         if node.name != name:
@@ -285,7 +285,7 @@ def _extract_class_from_file(
 
         # Build method summary
         methods = []
-        for child in ast.walk(node):
+        for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 prefix = "async " if isinstance(child, ast.AsyncFunctionDef) else ""
                 args   = [a.arg for a in child.args.args]
@@ -389,16 +389,20 @@ def get_function_callers(
 
 def _find_parent_function(tree: ast.AST, target: ast.Call) -> Optional[str]:
     """
-    Internal: find the name of the function that contains a Call node.
+    Internal: find the name of the innermost function that contains a Call node.
     Used to give caller context like "inside process_payment".
     """
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        # Check if target is anywhere inside this function
-        for child in ast.walk(node):
-            if child is target:
-                return node.name
+    parent_map = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parent_map[child] = parent
+
+    current = target
+    while current in parent_map:
+        parent = parent_map[current]
+        if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return parent.name
+        current = parent
     return None
 
 

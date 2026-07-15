@@ -1,74 +1,136 @@
 """
-Codebase Investigator — ReAct Agent with End-Assembly Structured Output
+Codebase Investigator — ReAct Agent with Separate Structured Extraction
 =======================================================================
 
-Investigates bugs using tools, accumulates raw data deterministically,
-assembles structured InvestigationResult at the end with one LLM call.
-
-Requirements:
-    pip install openai pydantic
+ReAct loop with tools → one structured extraction at end using self.step_chain.
 
 Usage:
-    agent = ReActAgent(openai_api_key="sk-...")
-    result = agent.run(
-        "Investigate test_login_fails. Error: NoneType in src/auth.py. Sandbox: /home/user/project",
-        response_model=InvestigationOutput
+    from investigator import Investigate
+    
+    investigator = Investigate()
+    result = investigator.investigate(
+        bug_id="BUG-001",
+        test_name="test_login_fails",
+        test_file="tests/test_auth.py",
+        traceback="Traceback (most recent call last):...",
+        failure_summary="NoneType error when calling verify_credentials",
+        exception_type="AttributeError",
+        sandbox_path="/home/user/project"
     )
-    print(result["answer"].results[0].root_cause)
+    print(result.results[0].root_cause)
 """
 
-import ast
 import json
-import os
-import re
-import subprocess
 import time
-import traceback
-from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Tuple, Type, TypeVar
+from typing import Literal, Optional, Dict, Any, Tuple, List
 
 from loguru import logger
 from openai import OpenAI
 from pydantic import BaseModel, Field
+from datetime import datetime
+from dataclasses import dataclass, field
 
 from src.config import settings
+from src.tools.file_ops import read_file
+from src.tools.code_search import (
+    extract_snippet,
+    grep_codebase,
+    get_function_definition,
+    get_class_definition,
+    get_function_callers,
+    get_functions_of_file,
+    get_imports_of_file,
+)
+
+MAX_ITERATIONS = 10
+MAX_RETRIES = 3
 
 
-# =============================================================================
-# STRUCTURED OUTPUT SCHEMAS
-# =============================================================================
+INVESTIGATOR_REACT_PROMPT = """
+    You are the Investigator agent in an autonomous bug-fixing system.
+
+    A test suite failed. You have been handed one failing test, its traceback, and read-only tools to explore the codebase. Your job is to find the root cause -- the actual mechanism that causes the failure, not just the symptom -- and gather enough concrete evidence that a separate Fixer agent can write a correct patch from your findings alone, without re-investigating from scratch. You do not write or suggest the fix yourself; that is out of scope for this role.
+
+    ## Tools
+    - extract_snippet(file_path, line_no, radius=10) -- your default first move on any file. Centers on a line (e.g. the crash line from the traceback) and shows the lines around it, with the target line marked >>>. Cheaper and more focused than read_file.
+    - read_file(file_path) -- full file contents. Use for short files, or once you already know you need the whole picture.
+    - grep_codebase(pattern, sandbox_path, file_extension=".py") -- regex/text search across the sandbox. Use when you're looking for a usage, constant, config flag, or error string and don't yet have an exact location.
+    - get_function_definition(function_name, sandbox_path) / get_class_definition(class_name, sandbox_path) -- AST-exact complete source, including decorators. Prefer these over grep once you know a name -- they never truncate or miss a decorator the way a text search can.
+    - get_function_callers(function_name, sandbox_path) -- every call site of a function via AST, no false positives from comments or strings. Use before concluding a fix approach: a change that looks correct in isolation can still break a caller that relies on the current behavior.
+    - get_functions_of_file(file_path) / get_imports_of_file(file_path) -- structural overview of a file. Use when you're not sure you're even in the right file, or suspect an import-time issue (circular import, wrong symbol, shadowed name).
+
+    ## Method
+    1. Start from the traceback: find the exact file and line where the exception was actually raised, and extract_snippet it first.
+    2. Read outward: pull the complete function or class the crash happened in, so you're reasoning about real code, not a fragment.
+    3. Form a hypothesis, then look for evidence that would confirm or rule it out. Every tool call should test something specific -- don't gather code just because it's nearby.
+    4. Before you conclude, check get_function_callers on anything you're about to point to as needing a change, so the eventual patch doesn't just relocate the bug or break a caller.
+    5. If the evidence points away from the code you're currently reading -- bad input, a wrong function being called, an import shadowing issue -- follow it with grep_codebase or get_imports_of_file rather than assuming.
+
+    ## When to stop
+    Stop calling tools as soon as you can state the root cause and name the exact file(s), line(s), function(s), or class(es) responsible, with the evidence for each. You have {max_iterations} turns -- treat that as a budget, not a target. Never call the same tool with the same arguments twice, and don't keep exploring once another tool call wouldn't change your conclusion.
+
+    ## Rules
+    - Never state a file path, line number, or function name you didn't actually get back from a tool.
+    - If a tool call errors, read the error and adjust -- don't repeat the identical call expecting a different result.
+    - If two turns in a row haven't moved you closer to a root cause, say so and change strategy rather than repeating the same kind of call.
+    - Describe the bug and the evidence for it, not a proposed fix.
+
+    When you're confident in the root cause, respond in plain language with your conclusion and the evidence for it, and do not call another tool -- that's what tells the system your investigation is complete.
+"""
+
+INVESTIGATOR_EXTRACT_PROMPT = """
+    You are the extraction stage of the Investigator agent in an autonomous bug-fixing system.
+
+    You will be given the transcript of a completed investigation into one or more failing tests: every reasoning step taken, every tool called, and every result returned. Turn that transcript into structured findings that a separate Fixer agent will use to write a patch without re-reading the codebase itself. This is evidence-to-record extraction, not fresh analysis -- use only what the transcript actually shows, and don't soften language into hedges just to sound careful.
+
+    For each bug the transcript investigated, fill in:
+    - bug_id / test_name: reuse exactly the identifiers given to you for this investigation.
+    - root_cause: one to two sentences on the mechanism, not the symptom -- e.g. "the retry counter increments before the transient check runs, so non-transient errors still consume a retry" rather than "retries don't work right".
+    - affected_files: every file that needs to change to fix the bug -- not every file that was merely read along the way.
+    - affected_lines: line numbers per file, taken only from what a tool call in the transcript actually showed.
+    - affected_functions / affected_classes: fully qualified names (module.path.Class.method or module.path.function) wherever the transcript makes the full path clear; a bare name only if that's genuinely all the evidence supports.
+    - code_snippets: the specific block(s) from the transcript's tool output that show the bug -- not the whole file.
+    - file_reasoning: one sentence per affected file on why that file specifically needs to change.
+    - confidence:
+        - high -- the transcript traced the bug to a specific line or function with a clear causal mechanism, and caller impact was checked where relevant.
+        - medium -- the root cause is identified, but caller impact wasn't checked, or the evidence is circumstantial rather than a directly observed line.
+        - low -- the investigation hit its iteration limit, a circuit breaker, or repeated tool failures before reaching a confirmed root cause. Say so plainly instead of presenting a guess as settled.
+    - reasoning_trace: the actual chain of steps, in your own words, in the order they happened -- enough for a human reviewer to audit how the conclusion was reached without re-reading the raw transcript.
+
+    If the transcript doesn't have enough evidence to support a field, leave it empty rather than inventing something plausible-sounding. If the transcript surfaces more than one distinct bug, return one result per bug.
+"""
 
 class InvestigationResult(BaseModel):
     bug_id: str = Field(description="ID of the bug being investigated")
     test_name: str = Field(description="Name of the failing test")
     root_cause: str = Field(description="1-2 sentence explanation of the actual bug")
-    affected_files: list[str] = Field(description="All files that need changing")
+    affected_files: list[str] = Field(default_factory=list, description="All files that need changing")
     affected_lines: dict[str, list[int]] = Field(
-        description="File path mapped to line numbers of interest",
-        default_factory=dict
+        default_factory=dict,
+        description="File path mapped to line numbers of interest"
     )
     affected_functions: list[str] = Field(
-        description="Fully qualified function/method names",
-        default_factory=list
+        default_factory=list,
+        description="Fully qualified function/method names"
     )
     affected_classes: list[str] = Field(
-        description="Fully qualified class names",
-        default_factory=list
+        default_factory=list,
+        description="Fully qualified class names"
     )
     code_snippets: dict[str, str] = Field(
-        description="File path mapped to relevant code blocks",
-        default_factory=dict
+        default_factory=dict,
+        description="File path mapped to relevant code blocks"
     )
     file_reasoning: dict[str, str] = Field(
-        description="File path mapped to why this file is linked",
-        default_factory=dict
+        default_factory=dict,
+        description="File path mapped to why this file is linked"
     )
     confidence: Literal["high", "medium", "low"] = Field(
         description="Confidence in the root cause analysis"
     )
     reasoning_trace: list[str] = Field(
+        default_factory=list,
         description="Steps the investigator took"
     )
 
@@ -79,137 +141,84 @@ class InvestigationOutput(BaseModel):
     )
 
 
-T = TypeVar("T", bound=BaseModel)
+class ActionStatus(Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+    MAX_RETRIES = "max_retries"
 
 
-# =============================================================================
-# SYSTEM PROMPT
-# =============================================================================
+@dataclass
+class Step:
+    iteration_number: int
+    observation: str
+    reasoning: str
+    action_name: Optional[str] = None
+    action_input: Optional[Dict] = None
+    result: Optional[str] = None
+    status: ActionStatus = ActionStatus.SUCCESS
+    timestamp: datetime = field(default_factory=datetime.now)
 
-INVESTIGATOR_SYSTEM = """\
-You are a senior code investigator. Your job is to find the root cause of a test failure by exploring the codebase.
-
-## Tools
-
-You have access to these tools:
-
-- `extract_snippet(file_path, line_no, radius=10)` — Read lines around a specific line. The crash line is marked with `>>>`. Use this FIRST for any file — it's fast and gives context.
-- `read_file(file_path)` — Read the full content of a file with line numbers. Use for small files or when you need the complete picture.
-- `grep_codebase(pattern, sandbox_path)` — Search for text/regex across all .py files. Use to find definitions, usages, and similar code.
-- `get_function_definition(function_name, sandbox_path)` — Get the COMPLETE source of a function using AST parsing. Use to read the full function body.
-- `get_class_definition(class_name, sandbox_path)` — Get the COMPLETE source of a class with method summary. Use for class-related bugs.
-- `get_function_callers(function_name, sandbox_path)` — Find ALL call sites of a function using AST. More precise than grep for finding who calls what.
-- `get_functions_of_file(file_path)` — Get an overview of all functions/classes in a file. Use to quickly understand file structure.
-- `get_imports_of_file(file_path)` — Get all imports from a file. Use when tracing where symbols come from.
-
-IMPORTANT: All tools that take `sandbox_path` need the full sandbox directory path, which is provided in the failing test context below.
-
-## Process — YOU MUST FOLLOW ALL STEPS
-
-You MUST make at least 5 tool calls before returning your final answer. Do NOT stop early.
-
-### Step 1: Understand the test failure
-- Use `extract_snippet` on the test file at the failing line to see context.
-- Understand what the test expects and what the error says.
-
-### Step 2: Read source files from the traceback
-- Use `extract_snippet` on each source file mentioned in the traceback at the error line.
-- Use `get_function_definition` to read the full body of any functions called in the failing code.
-
-### Step 3: Trace the call chain
-- For every function called in the failing code, use `get_function_definition` to read it.
-- If a function calls other functions, trace THOSE too. Follow the chain until you reach leaf functions.
-- Use `get_function_callers` to see who else calls the buggy function.
-
-### Step 4: Check related code
-- Use `grep_codebase` to find:
-  - All callers of the buggy function
-  - Similar functions that might have the same bug
-  - Any TODOs or FIXMEs near the buggy code
-- Use `get_imports_of_file` if you need to trace where a symbol comes from.
-
-### Step 5: Verify your hypothesis
-- Use `extract_snippet` to re-read the specific lines you think are wrong.
-- Check if there are any conditions, edge cases, or dependencies you missed.
-
-### Step 6: Return your investigation
-When you have enough information, stop calling tools and write a clear, detailed summary of your findings. The system will extract the structured report automatically.
-
-## Rules
-
-- Make at least 5 tool calls before returning. Read more if needed.
-- ALWAYS use extract_snippet first — don't jump to read_file for large files.
-- ALWAYS trace the full call chain — do not stop at the first function you find.
-- List EVERY file you read that's relevant, not just the one with the obvious bug.
-- If you cannot determine the root cause, say so clearly.
-- Do not guess. If the traceback is unclear, say so.
-"""
-
-
-# =============================================================================
-# TOOL DEFINITIONS
-# =============================================================================
 
 TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
             "name": "extract_snippet",
-            "description": "Read lines around a specific line. The crash line is marked with >>>. Use this FIRST for any file.",
+            "description": "Read lines around a specific line number. The crash line is marked with >>>. Preferred first tool for examining any file.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string"},
-                    "line_no": {"type": "integer"},
-                    "radius": {"type": "integer", "default": 10}
+                    "file_path": {"type": "string", "description": "Absolute path to the file inside the sandbox"},
+                    "line_no": {"type": "integer", "description": "1-based line number to center on"},
+                    "radius": {"type": "integer", "description": "Lines before and after to include (default 10)", "default": 10},
                 },
-                "required": ["file_path", "line_no"]
-            }
-        }
+                "required": ["file_path", "line_no"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read the full content of a file with line numbers. Use for small files or when you need the complete picture.",
+            "description": "Read full file content with line numbers. Use for small files or when you need the complete picture.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string"}
+                    "file_path": {"type": "string", "description": "Absolute path to the file inside the sandbox"},
                 },
-                "required": ["file_path"]
-            }
-        }
+                "required": ["file_path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "grep_codebase",
-            "description": "Search for text/regex across all .py files. Use to find definitions, usages, and similar code.",
+            "description": "Search for text or regex pattern across all .py files in the sandbox.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "pattern": {"type": "string"},
-                    "sandbox_path": {"type": "string"}
+                    "pattern": {"type": "string", "description": "Text or regex pattern to search for"},
+                    "sandbox_path": {"type": "string", "description": "Absolute path to the sandbox root directory"},
                 },
-                "required": ["pattern", "sandbox_path"]
-            }
-        }
+                "required": ["pattern", "sandbox_path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_function_definition",
-            "description": "Get the COMPLETE source of a function using AST parsing. Use to read the full function body.",
+            "description": "Get the COMPLETE source of a function using AST parsing. Returns full body including decorators.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "function_name": {"type": "string"},
-                    "sandbox_path": {"type": "string"}
+                    "function_name": {"type": "string", "description": "Name of the function to find"},
+                    "sandbox_path": {"type": "string", "description": "Absolute path to the sandbox root directory"},
                 },
-                "required": ["function_name", "sandbox_path"]
-            }
-        }
+                "required": ["function_name", "sandbox_path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -219,350 +228,79 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "class_name": {"type": "string"},
-                    "sandbox_path": {"type": "string"}
+                    "class_name": {"type": "string", "description": "Name of the class to find"},
+                    "sandbox_path": {"type": "string", "description": "Absolute path to the sandbox root directory"},
                 },
-                "required": ["class_name", "sandbox_path"]
-            }
-        }
+                "required": ["class_name", "sandbox_path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_function_callers",
-            "description": "Find ALL call sites of a function using AST. More precise than grep for finding who calls what.",
+            "description": "Find ALL call sites of a function using AST. More precise than grep — no false positives from comments.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "function_name": {"type": "string"},
-                    "sandbox_path": {"type": "string"}
+                    "function_name": {"type": "string", "description": "Name of the function to find callers of"},
+                    "sandbox_path": {"type": "string", "description": "Absolute path to the sandbox root directory"},
                 },
-                "required": ["function_name", "sandbox_path"]
-            }
-        }
+                "required": ["function_name", "sandbox_path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_functions_of_file",
-            "description": "Get an overview of all functions/classes in a file. Use to quickly understand file structure.",
+            "description": "Get overview of all functions and classes defined in a file with line numbers.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string"}
+                    "file_path": {"type": "string", "description": "Absolute path to the file inside the sandbox"},
                 },
-                "required": ["file_path"]
-            }
-        }
+                "required": ["file_path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_imports_of_file",
-            "description": "Get all imports from a file. Use when tracing where symbols come from.",
+            "description": "Get all import statements from a file with line numbers.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string"}
+                    "file_path": {"type": "string", "description": "Absolute path to the file inside the sandbox"},
                 },
-                "required": ["file_path"]
-            }
-        }
-    }
+                "required": ["file_path"],
+            },
+        },
+    },
 ]
 
 
-# =============================================================================
-# TOOL IMPLEMENTATIONS
-# =============================================================================
-
-def tool_extract_snippet(file_path: str, line_no: int, radius: int = 10) -> str:
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        total = len(lines)
-        start = max(0, line_no - radius - 1)
-        end = min(total, line_no + radius)
-        output = [f"Snippet from {file_path} (lines {start + 1}-{end}):"]
-        for i in range(start, end):
-            marker = ">>> " if i == line_no - 1 else "    "
-            output.append(f"{marker}{i + 1:4d}: {lines[i].rstrip()}")
-        return "\n".join(output)
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
-def tool_read_file(file_path: str) -> str:
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        output = [f"Full file: {file_path}"]
-        for i, line in enumerate(lines, 1):
-            output.append(f"{i:4d}: {line.rstrip()}")
-        return "\n".join(output)
-    except FileNotFoundError:
-        return f"Error: File '{file_path}' not found."
-    except PermissionError:
-        return f"Error: Permission denied for '{file_path}'."
-    except Exception as e:
-        return f"Error reading file: {str(e)}"
-
-
-def tool_grep_codebase(pattern: str, sandbox_path: str) -> str:
-    try:
-        cmd = ["rg", "-n", "--no-heading", "-g", "*.py", pattern, sandbox_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0 and result.stdout:
-            lines = result.stdout.strip().split("\n")[:50]
-            return "\n".join(lines)
-        if result.returncode == 1:
-            return "No matches found."
-    except FileNotFoundError:
-        pass
-
-    try:
-        cmd = ["grep", "-rn", "--include", "*.py", pattern, sandbox_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0 and result.stdout:
-            lines = result.stdout.strip().split("\n")[:50]
-            return "\n".join(lines)
-        return "No matches found."
-    except subprocess.TimeoutExpired:
-        return "Error: Search timed out."
-    except Exception as e:
-        return f"Search error: {str(e)}"
-
-
-def _find_py_files(sandbox_path: str):
-    for root, _, files in os.walk(sandbox_path):
-        for fname in files:
-            if fname.endswith(".py"):
-                yield os.path.join(root, fname)
-
-
-def tool_get_function_definition(function_name: str, sandbox_path: str) -> str:
-    matches = []
-    for fpath in _find_py_files(sandbox_path):
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                source = f.read()
-            tree = ast.parse(source)
-            lines = source.splitlines()
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name:
-                    start = node.lineno - 1
-                    end = node.end_lineno
-                    code = "\n".join(f"{i + 1:4d}: {lines[i]}" for i in range(start, end))
-                    matches.append(f"Found in {fpath}:\n{code}")
-        except Exception:
-            continue
-    return "\n\n".join(matches) if matches else f"Function '{function_name}' not found."
-
-
-def tool_get_class_definition(class_name: str, sandbox_path: str) -> str:
-    matches = []
-    for fpath in _find_py_files(sandbox_path):
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                source = f.read()
-            tree = ast.parse(source)
-            lines = source.splitlines()
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef) and node.name == class_name:
-                    start = node.lineno - 1
-                    end = node.end_lineno
-                    methods = [
-                        n.name for n in node.body
-                        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                    ]
-                    code = "\n".join(f"{i + 1:4d}: {lines[i]}" for i in range(start, end))
-                    matches.append(
-                        f"Found in {fpath}:\n"
-                        f"Methods: {', '.join(methods)}\n"
-                        f"{code}"
-                    )
-        except Exception:
-            continue
-    return "\n\n".join(matches) if matches else f"Class '{class_name}' not found."
-
-
-def tool_get_function_callers(function_name: str, sandbox_path: str) -> str:
-    results = []
-    for fpath in _find_py_files(sandbox_path):
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                source = f.read()
-            tree = ast.parse(source)
-            file_lines = source.splitlines()
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call):
-                    match = False
-                    if isinstance(node.func, ast.Name) and node.func.id == function_name:
-                        match = True
-                    elif isinstance(node.func, ast.Attribute) and node.func.attr == function_name:
-                        match = True
-                    if match:
-                        line = file_lines[node.lineno - 1].strip()
-                        results.append(f"{fpath}:{node.lineno}: {line}")
-        except Exception:
-            continue
-    return "\n".join(results) if results else f"No callers of '{function_name}' found."
-
-
-def tool_get_functions_of_file(file_path: str) -> str:
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            tree = ast.parse(f.read())
-        funcs = []
-        classes = []
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                funcs.append(f"  {node.name} (line {node.lineno})")
-            elif isinstance(node, ast.ClassDef):
-                methods = [
-                    n.name for n in node.body
-                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                ]
-                classes.append(f"  {node.name} (line {node.lineno}) — methods: {', '.join(methods)}")
-        output = []
-        if funcs:
-            output.append(f"Functions in {file_path}:")
-            output.extend(sorted(funcs))
-        if classes:
-            output.append(f"\nClasses in {file_path}:")
-            output.extend(sorted(classes))
-        return "\n".join(output) if output else f"No functions/classes found in {file_path}."
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
-def tool_get_imports_of_file(file_path: str) -> str:
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            tree = ast.parse(f.read())
-        imports = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    imports.append(f"  import {alias.name}" + (f" as {alias.asname}" if alias.asname else ""))
-            elif isinstance(node, ast.ImportFrom):
-                module = node.module or "."
-                names = ", ".join(
-                    f"{a.name}" + (f" as {a.asname}" if a.asname else "")
-                    for a in node.names
-                )
-                imports.append(f"  from {module} import {names}")
-        return f"Imports in {file_path}:\n" + "\n".join(imports) if imports else f"No imports found in {file_path}."
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
 TOOL_DISPATCH = {
-    "extract_snippet": tool_extract_snippet,
-    "read_file": tool_read_file,
-    "grep_codebase": tool_grep_codebase,
-    "get_function_definition": tool_get_function_definition,
-    "get_class_definition": tool_get_class_definition,
-    "get_function_callers": tool_get_function_callers,
-    "get_functions_of_file": tool_get_functions_of_file,
-    "get_imports_of_file": tool_get_imports_of_file,
+    "read_file": read_file,
+    "extract_snippet": extract_snippet,
+    "grep_codebase": grep_codebase,
+    "get_function_definition": get_function_definition,
+    "get_function_callers": get_function_callers,
+    "get_class_definition": get_class_definition,
+    "get_functions_of_file": get_functions_of_file,
+    "get_imports_of_file": get_imports_of_file,
 }
 
 
-# =============================================================================
-# MERGED DATACLASS: Step + Investigation State
-# =============================================================================
-
-class ActionStatus(Enum):
-    SUCCESS = "success"
-    ERROR = "error"
-    MAX_RETRIES = "max_retries"
-
-
-@dataclass
-class InvestigationStep:
-    """
-    Merged dataclass: ReAct execution trace + raw investigation data.
-    Structured fields (root_cause, confidence, file_reasoning) assembled at end.
-    """
-    # ── ReAct execution trace ──
-    step_number: int
-    observation: str
-    reasoning: str
-    action_name: Optional[str] = None
-    action_input: Optional[Dict] = None
-    tool_result: Optional[str] = None
-    status: ActionStatus = ActionStatus.SUCCESS
-    timestamp: datetime = field(default_factory=datetime.now)
-    retry_history: List[Dict] = field(default_factory=list)
-    
-    # ── Conversation history snapshots ──
-    messages_before: List[Dict] = field(default_factory=list)
-    messages_after: List[Dict] = field(default_factory=list)
-    
-    # ── Raw investigation data (accumulated deterministically) ──
-    files_seen: List[str] = field(default_factory=list)
-    functions_seen: List[str] = field(default_factory=list)
-    classes_seen: List[str] = field(default_factory=list)
-    lines_seen: Dict[str, List[int]] = field(default_factory=dict)
-    snippets_seen: Dict[str, str] = field(default_factory=dict)
-
-
-# =============================================================================
-# REACT AGENT
-# =============================================================================
-
-class ReActAgent:
-    def __init__(
-        self,
-        openai_api_key: str,
-        model: str = "gpt-4o-2024-08-06",
-        max_iterations: int = 25,
-        max_retries: int = 3
-    ):
-        self.client = OpenAI(api_key=openai_api_key)
-        self.model = model
-        self.max_iterations = max_iterations
-        self.max_retries = max_retries
-        self.step_chain: List[InvestigationStep] = []
+class Investigate:
+    def __init__(self):
+        self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self._model = settings.INVESTIGATE_MODEL
+        self.max_iterations = MAX_ITERATIONS
+        self.max_retries = MAX_RETRIES
+        self.step_chain: List[Step] = []
         self._error_counts: Dict[str, int] = {}
-
-    def _build_messages(self, task: str) -> List[Dict]:
-        messages = [
-            {"role": "system", "content": INVESTIGATOR_SYSTEM},
-            {"role": "user", "content": task}
-        ]
-
-        for step in self.step_chain:
-            if step.action_name is None:
-                messages.append({"role": "assistant", "content": step.reasoning})
-            else:
-                messages.append({
-                    "role": "assistant",
-                    "content": step.reasoning,
-                    "tool_calls": [{
-                        "id": f"call_{step.step_number}",
-                        "type": "function",
-                        "function": {
-                            "name": step.action_name,
-                            "arguments": json.dumps(step.action_input)
-                        }
-                    }]
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": f"call_{step.step_number}",
-                    "content": step.tool_result or ""
-                })
-
-        return messages
-
-    def _is_transient_error(self, error_msg: str) -> bool:
-        transient_patterns = [
-            "timeout", "connection", "rate limit", "too many requests",
-            "temporary", "unavailable", "503", "502", "504", "429"
-        ]
-        return any(p in error_msg.lower() for p in transient_patterns)
 
     def _execute_tool(self, name: str, args: Dict[str, Any]) -> Tuple[str, ActionStatus]:
         tool_func = TOOL_DISPATCH.get(name)
@@ -575,353 +313,54 @@ class ReActAgent:
         except Exception as e:
             return f"Error executing {name}: {str(e)}", ActionStatus.ERROR
 
-    def _execute_with_retry(self, name: str, args: Dict, attempt: int = 1, history: List[Dict] = None) -> Tuple[str, ActionStatus, List[Dict]]:
-        history = history or []
+    def _execute_with_retry(self, name: str, args: Dict, attempt: int = 1) -> Tuple[str, ActionStatus]:
         result, status = self._execute_tool(name, args)
 
         if status == ActionStatus.ERROR and attempt < self.max_retries:
-            is_transient = self._is_transient_error(result)
-            if not is_transient:
-                history.append({
-                    "attempt": attempt,
-                    "tool_name": name,
-                    "tool_args": args,
-                    "error": result,
-                    "is_transient": False,
-                    "retried": False,
-                    "sleep_seconds": 0
-                })
-                return result, status, history
+            if self._is_transient_error(result):
+                time.sleep(min(2 ** attempt, 30))
+                return self._execute_with_retry(name, args, attempt + 1)
 
-            sleep_seconds = min(2 ** attempt, 30)
-            history.append({
-                "attempt": attempt,
-                "tool_name": name,
-                "tool_args": args,
-                "error": result,
-                "is_transient": True,
-                "retried": True,
-                "sleep_seconds": sleep_seconds
-            })
-            time.sleep(sleep_seconds)
-            return self._execute_with_retry(name, args, attempt + 1, history)
+        return result, status
 
-        if status == ActionStatus.ERROR and attempt >= self.max_retries:
-            history.append({
-                "attempt": attempt,
-                "tool_name": name,
-                "tool_args": args,
-                "error": result,
-                "is_transient": self._is_transient_error(result),
-                "retried": False,
-                "sleep_seconds": 0
-            })
+    def _is_transient_error(self, error_msg: str) -> bool:
+        transient_patterns = [
+            "timeout", "connection", "rate limit", "too many requests",
+            "temporary", "unavailable", "503", "502", "504", "429"
+        ]
+        return any(p in error_msg.lower() for p in transient_patterns)
 
-        return result, status, history
-
-    def _extract_raw_from_tool(self, tool_name: str, tool_args: Dict, tool_result: str) -> Dict:
-        """Deterministically parse raw data from tool result. No LLM."""
-        raw = {
-            "files": [],
-            "functions": [],
-            "classes": [],
-            "lines": {},
-            "snippets": {}
-        }
-
-        if tool_name == "extract_snippet":
-            raw["files"].append(tool_args["file_path"])
-            line_no = tool_args["line_no"]
-            raw["lines"][tool_args["file_path"]] = [line_no]
-            # Extract snippet content for code_snippets
-            raw["snippets"][tool_args["file_path"]] = tool_result[:2000]
-
-        elif tool_name == "read_file":
-            raw["files"].append(tool_args["file_path"])
-            raw["snippets"][tool_args["file_path"]] = tool_result[:2000]
-
-        elif tool_name == "get_function_definition":
-            match = re.search(r'Found in (\S+):', tool_result)
-            if match:
-                raw["files"].append(match.group(1))
-            raw["functions"].append(tool_args["function_name"])
-            if match:
-                raw["snippets"][match.group(1)] = tool_result[:2000]
-
-        elif tool_name == "get_class_definition":
-            match = re.search(r'Found in (\S+):', tool_result)
-            if match:
-                raw["files"].append(match.group(1))
-            raw["classes"].append(tool_args["class_name"])
-            if match:
-                raw["snippets"][match.group(1)] = tool_result[:2000]
-
-        elif tool_name == "get_function_callers":
-            for line in tool_result.split("\n"):
-                if ":" in line:
-                    filepath = line.split(":")[0]
-                    if filepath and filepath not in raw["files"]:
-                        raw["files"].append(filepath)
-
-        elif tool_name == "grep_codebase":
-            for line in tool_result.split("\n"):
-                if ":" in line:
-                    filepath = line.split(":")[0]
-                    if filepath and filepath not in raw["files"]:
-                        raw["files"].append(filepath)
-
-        elif tool_name in ("get_functions_of_file", "get_imports_of_file"):
-            raw["files"].append(tool_args["file_path"])
-
-        return raw
-
-    def _assemble_investigation(self, task: str, response_model: Type[T]) -> T:
-        """
-        ONE LLM call at the end.
-        Input: full ReAct history + accumulated raw data.
-        Output: complete structured InvestigationResult.
-        """
-        # Build accumulated raw data summary
-        all_files = list(dict.fromkeys(f for step in self.step_chain for f in step.files_seen))
-        all_functions = list(dict.fromkeys(fn for step in self.step_chain for fn in step.functions_seen))
-        all_classes = list(dict.fromkeys(c for step in self.step_chain for c in step.classes_seen))
-        
-        all_lines = {}
-        for step in self.step_chain:
-            for filepath, lines in step.lines_seen.items():
-                if filepath not in all_lines:
-                    all_lines[filepath] = []
-                all_lines[filepath] = list(dict.fromkeys(all_lines[filepath] + lines))
-        
-        all_snippets = {}
-        for step in self.step_chain:
-            all_snippets.update(step.snippets_seen)
-
-        raw_summary = f"""
-ACCUMULATED RAW DATA FROM INVESTIGATION:
-- Files seen: {all_files}
-- Functions seen: {all_functions}
-- Classes seen: {all_classes}
-- Lines of interest: {all_lines}
-- Code snippets available for: {list(all_snippets.keys())}
-
-FULL INVESTIGATION HISTORY:
-"""
-
-        # Add full conversation history
+    def _build_messages(self, context: str) -> List[Dict]:
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a structured data assembler. "
-                    "Review the full investigation history and accumulated raw data below. "
-                    "Produce the final structured investigation report. "
-                    "Be faithful to the evidence. Do not hallucinate files, line numbers, or code."
-                )
-            }
+            {"role": "system", "content": INVESTIGATOR_REACT_PROMPT.format(max_iterations=self.max_iterations)},
+            {"role": "user", "content": context}
         ]
 
-        # Include full ReAct history (skip the investigator system prompt at index 0)
-        history_messages = self._build_messages(task)
-        messages.extend(history_messages[1:])
-
-        # Append raw summary as final user message
-        messages.append({
-            "role": "user",
-            "content": (
-                raw_summary + 
-                f"\n\nTask: {task}\n\n"
-                f"Assemble the final structured investigation report."
-            )
-        })
-
-        try:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=messages,
-                response_format=response_model,
-            )
-            return completion.choices[0].message.parsed
-        except Exception as e:
-            # Fallback: create minimal valid instance
-            defaults = {field: "" for field in response_model.model_fields.keys()}
-            if "results" in defaults:
-                defaults["results"] = []
-            return response_model(**defaults)
-
-    def run(self, task: str, response_model: Type[T] = None, initial_observation: str = "") -> Dict[str, Any]:
-        current_observation = initial_observation or "Starting fresh. You have access to codebase investigation tools."
-
-        for iteration in range(self.max_iterations):
-            step_num = iteration + 1
-
-            messages = self._build_messages(task)
-            messages_before = list(messages)
-
-            messages.append({
-                "role": "user",
-                "content": f"Current observation: {current_observation}\n\nWhat do you think and what action should you take next?"
-            })
-
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=TOOL_DEFINITIONS,
-                    tool_choice="auto",
-                    temperature=0.2,
-                    parallel_tool_calls=False,
-                )
-            except Exception as e:
-                return {
-                    "success": False,
-                    "answer": None,
-                    "error": f"OpenAI API error: {str(e)}",
-                    "iterations": step_num,
-                    "step_chain": self.step_chain
-                }
-
-            message = response.choices[0].message
-            reasoning = message.content or "(no explicit reasoning provided)"
-
-            # Natural termination: no tool calls = done
-            if not message.tool_calls:
-                messages_after = self._build_messages(task)
-                messages_after.append({"role": "assistant", "content": reasoning})
-
-                self.step_chain.append(InvestigationStep(
-                    step_number=step_num,
-                    observation=current_observation,
-                    reasoning=reasoning,
-                    action_name=None,
-                    action_input=None,
-                    tool_result=reasoning,
-                    messages_before=messages_before,
-                    messages_after=messages_after
-                ))
-
-                # FINAL ASSEMBLY: one LLM call with full history + raw data
-                if response_model is not None:
-                    structured = self._assemble_investigation(task, response_model)
-                    return {
-                        "success": True,
-                        "answer": structured,
-                        "raw_answer": reasoning,
-                        "iterations": step_num,
-                        "step_chain": self.step_chain
-                    }
-
-                return {
-                    "success": True,
-                    "answer": reasoning,
-                    "iterations": step_num,
-                    "step_chain": self.step_chain
-                }
-
-            # Process tool calls
-            for tool_call in message.tool_calls:
-                tool_name = tool_call.function.name
-                tool_args = json.loads(tool_call.function.arguments)
-
-                result, status, retry_history = self._execute_with_retry(tool_name, tool_args)
-
-                # Extract raw data deterministically (no LLM)
-                raw_data = self._extract_raw_from_tool(tool_name, tool_args, result)
-
-                messages_after = self._build_messages(task)
-                messages_after.append({
+        for step in self.step_chain:
+            if step.action_name is None:
+                messages.append({"role": "assistant", "content": step.reasoning})
+            else:
+                messages.append({
                     "role": "assistant",
-                    "content": reasoning,
+                    "content": step.reasoning,
                     "tool_calls": [{
-                        "id": f"call_{step_num}",
+                        "id": f"call_{step.iteration_number}",
                         "type": "function",
                         "function": {
-                            "name": tool_name,
-                            "arguments": json.dumps(tool_args)
+                            "name": step.action_name,
+                            "arguments": json.dumps(step.action_input)
                         }
                     }]
                 })
-                messages_after.append({
+                messages.append({
                     "role": "tool",
-                    "tool_call_id": f"call_{step_num}",
-                    "content": result or ""
+                    "tool_call_id": f"call_{step.iteration_number}",
+                    "content": step.result or ""
                 })
 
-                self.step_chain.append(InvestigationStep(
-                    step_number=step_num,
-                    observation=current_observation,
-                    reasoning=reasoning,
-                    action_name=tool_name,
-                    action_input=tool_args,
-                    tool_result=result,
-                    status=status,
-                    messages_before=messages_before,
-                    messages_after=messages_after,
-                    retry_history=retry_history,
-                    files_seen=raw_data["files"],
-                    functions_seen=raw_data["functions"],
-                    classes_seen=raw_data["classes"],
-                    lines_seen=raw_data["lines"],
-                    snippets_seen=raw_data["snippets"]
-                ))
+        return messages
 
-                current_observation = result
-
-                if status == ActionStatus.ERROR:
-                    error_key = f"{tool_name}:{json.dumps(tool_args, sort_keys=True)}"
-                    self._error_counts[error_key] = self._error_counts.get(error_key, 0) + 1
-                    if self._error_counts[error_key] >= 3:
-                        return {
-                            "success": False,
-                            "answer": None,
-                            "error": f"Circuit breaker: repeated failures on {tool_name}",
-                            "iterations": step_num,
-                            "step_chain": self.step_chain
-                        }
-
-        last_reasoning = self.step_chain[-1].reasoning if self.step_chain else None
-        return {
-            "success": False,
-            "answer": last_reasoning,
-            "error": "Max iterations reached",
-            "partial": True,
-            "iterations": self.max_iterations,
-            "step_chain": self.step_chain
-        }
-
-    def get_trace(self) -> str:
-        lines = [f"Execution Trace ({len(self.step_chain)} steps):"]
-        for step in self.step_chain:
-            lines.append(f"\n  Step {step.step_number} [{step.status.value}]")
-            lines.append(f"    Observation: {step.observation[:120]}...")
-            lines.append(f"    Thought: {step.reasoning[:120]}...")
-            if step.action_name:
-                lines.append(f"    Action: {step.action_name}({json.dumps(step.action_input)})")
-            if step.tool_result:
-                lines.append(f"    Result: {step.tool_result[:200]}...")
-            lines.append(f"    Raw data: files={step.files_seen}, functions={step.functions_seen}, classes={step.classes_seen}")
-            if step.retry_history:
-                lines.append(f"    Retries: {len(step.retry_history)}")
-            lines.append(f"    History: before={len(step.messages_before)} after={len(step.messages_after)}")
-        return "\n".join(lines)
-
-
-# =============================================================================
-# WRAPPER CLASS — bridges ReActAgent to graph node interface
-# =============================================================================
-
-class Investigate:
-    """Thin wrapper that adapts ReActAgent to the interface expected by the graph node."""
-
-    def __init__(self):
-        self._agent = ReActAgent(
-            openai_api_key=settings.OPENAI_API_KEY,
-            model=settings.INVESTIGATE_MODEL,
-            max_iterations=25,
-            max_retries=3,
-        )
-
-    def run(
+    def investigate(
         self,
         bug_id: str,
         test_name: str,
@@ -929,122 +368,144 @@ class Investigate:
         traceback: str,
         failure_summary: str,
         exception_type: str,
-        sandbox_path: str,
-    ) -> InvestigationResult:
-        task = (
-            f"Investigate the failing test '{test_name}' in '{test_file}'.\n"
-            f"Exception type: {exception_type}\n"
-            f"Summary: {failure_summary}\n"
-            f"Sandbox path: {sandbox_path}\n"
-            f"Bug ID: {bug_id}\n\n"
-            f"Traceback:\n{traceback}"
-        )
+        sandbox_path: str
+    ) -> InvestigationOutput:
+        logger.info(f"Investigating bug_id: {bug_id}")
 
-        logger.info(
-            f"Investigator starting: bug_id={bug_id}, test={test_name}, "
-            f"file={test_file}, exception={exception_type}"
-        )
+        self.step_chain = []
+        self._error_counts = {}
 
-        result = self._agent.run(
-            task=task,
-            response_model=InvestigationOutput,
-            initial_observation=f"Analyzing test failure: {test_name}",
-        )
+        context = f"""\
+## Failing Test
+- Name: {test_name}
+- File: {test_file}
+- Exception: {exception_type}
+- Summary: {failure_summary}
+- Sandbox: {sandbox_path}
 
-        if not result["success"]:
-            logger.warning(f"Investigation failed: {result.get('error')}")
-            return InvestigationResult(
-                bug_id=bug_id,
-                test_name=test_name,
-                root_cause="Investigation failed: " + result.get("error", "unknown error"),
-                affected_files=[],
-                affected_lines={},
-                affected_functions=[],
-                affected_classes=[],
-                code_snippets={},
-                file_reasoning={},
-                confidence="low",
-                reasoning_trace=[s.reasoning for s in result.get("step_chain", [])],
+## Traceback
+{traceback}
+"""
+
+        current_observation = "Starting fresh. You have access to tools. Analyze the task and take action."
+
+        for iteration in range(self.max_iterations):
+            iter_no = iteration + 1
+
+            messages = self._build_messages(context=context)
+            messages.append({
+                "role": "user",
+                "content": f"Current observation: {current_observation}\n\nWhat do you think and what action should you take next?"
+            })
+
+            try:
+                response = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    tools=TOOL_DEFINITIONS,
+                    tool_choice="auto",
+                    temperature=0.2,
+                    parallel_tool_calls=False,
+                )
+            except Exception as e:
+                logger.error(f"OpenAI API error: {e}")
+                raise
+
+            message = response.choices[0].message
+            reasoning = message.content or "(no explicit reasoning provided)"
+
+            if not message.tool_calls:
+                logger.info("Investigation complete")
+
+                step = Step(
+                    iteration_number=iter_no,
+                    observation=current_observation,
+                    reasoning=reasoning,
+                    action_name=None,
+                    action_input=None,
+                    result=reasoning,
+                )
+                self.step_chain.append(step)
+
+                return self._extract_investigation(bug_id, test_name)
+
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
+
+                result, status = self._execute_with_retry(tool_name, tool_args)
+
+                step = Step(
+                    iteration_number=iter_no,
+                    observation=current_observation,
+                    reasoning=reasoning,
+                    action_name=tool_name,
+                    action_input=tool_args,
+                    result=result,
+                    status=status,
+                )
+
+                current_observation = result
+                self.step_chain.append(step)
+
+                if status == ActionStatus.ERROR:
+                    error_key = f"{tool_name}:{json.dumps(tool_args, sort_keys=True)}"
+                    self._error_counts[error_key] = self._error_counts.get(error_key, 0) + 1
+                    if self._error_counts[error_key] >= 3:
+                        logger.error(f"Circuit breaker: {tool_name}")
+                        raise RuntimeError(f"Circuit breaker: repeated failures on {tool_name}")
+
+        logger.warning("Max iterations reached")
+        return self._extract_investigation(bug_id, test_name, partial=True)
+
+    def _extract_investigation(self, bug_id: str, test_name: str, partial: bool = False) -> InvestigationOutput:
+        investigation_log = []
+        for step in self.step_chain:
+            investigation_log.append(f"\n--- Step {step.iteration_number} [{step.status.value}] ---")
+            investigation_log.append(f"Observation: {step.observation}")
+            investigation_log.append(f"Thought: {step.reasoning}")
+            if step.action_name:
+                investigation_log.append(f"Action: {step.action_name}")
+                investigation_log.append(f"Args: {json.dumps(step.action_input)}")
+                investigation_log.append(f"Result:\n{step.result}")
+
+        messages = [
+            {"role": "system", "content": INVESTIGATOR_EXTRACT_PROMPT},
+            {"role": "user", "content": f"""\
+Investigation metadata:
+- bug_id: {bug_id}
+- test_name: {test_name}
+- total_steps: {len(self.step_chain)}
+- partial: {partial}
+
+Investigation log:
+{''.join(investigation_log)}
+
+Extract the structured investigation report from the log above.
+"""}
+        ]
+
+        try:
+            response = self._client.beta.chat.completions.parse(
+                model=self._model,
+                messages=messages,
+                response_format=InvestigationOutput,
             )
+            return response.choices[0].message.parsed
 
-        output: InvestigationOutput = result["answer"]
-        if not output.results:
-            logger.warning("Investigation returned empty results")
-            return InvestigationResult(
-                bug_id=bug_id,
-                test_name=test_name,
-                root_cause="No investigation results produced",
-                affected_files=[],
-                affected_lines={},
-                affected_functions=[],
-                affected_classes=[],
-                code_snippets={},
-                file_reasoning={},
-                confidence="low",
-                reasoning_trace=[s.reasoning for s in result.get("step_chain", [])],
-            )
+        except Exception as e:
+            logger.error(f"Structured extraction failed: {e}")
+            return InvestigationOutput(results=[])
 
-        inv = output.results[0]
-        inv.bug_id = bug_id
-        inv.test_name = test_name
+    def get_trace(self) -> str:
+        lines = [f"Investigation Trace ({len(self.step_chain)} steps):"]
+        for step in self.step_chain:
+            lines.append(f"\n  Step {step.iteration_number} [{step.status.value}]")
+            lines.append(f"    Observation: {step.observation}")
+            lines.append(f"    Thought: {step.reasoning}")
+            if step.action_name:
+                lines.append(f"    Action: {step.action_name}({json.dumps(step.action_input)})")
+            if step.result:
+                lines.append(f"    Result: {step.result[:500]}...")
+        return "\n".join(lines)
 
-        logger.info(
-            f"Investigation complete: confidence={inv.confidence}, "
-            f"affected_files={inv.affected_files}, root_cause={inv.root_cause[:100]}"
-        )
-
-        return inv
-
-
-# =============================================================================
-# EXAMPLE USAGE
-# =============================================================================
-
-def main():
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        print("Error: Set OPENAI_API_KEY environment variable")
-        return
-
-    agent = ReActAgent(
-        openai_api_key=api_key,
-        model="gpt-4o-2024-08-06",
-        max_iterations=25
-    )
-
-    result = agent.run(
-        task=(
-            "Investigate the failing test 'test_login_fails'. "
-            "The error trace mentions 'NoneType' in src/auth.py. "
-            "Sandbox path: /home/user/project"
-        ),
-        response_model=InvestigationOutput,
-        initial_observation="Working directory: /home/user/project"
-    )
-
-    if result["success"]:
-        output: InvestigationOutput = result["answer"]
-        print(f"Found {len(output.results)} investigation result(s)\n")
-
-        for r in output.results:
-            print(f"Bug ID: {r.bug_id}")
-            print(f"Test: {r.test_name}")
-            print(f"Root Cause: {r.root_cause}")
-            print(f"Confidence: {r.confidence}")
-            print(f"Affected Files: {r.affected_files}")
-            print(f"Affected Lines: {r.affected_lines}")
-            print(f"Affected Functions: {r.affected_functions}")
-            print(f"Affected Classes: {r.affected_classes}")
-            print(f"Code Snippets keys: {list(r.code_snippets.keys())}")
-            print(f"File Reasoning: {r.file_reasoning}")
-            print(f"Reasoning Trace: {r.reasoning_trace}")
-            print("-" * 50)
-    else:
-        print(f"Failed: {result['error']}")
-        print(f"Partial answer: {result.get('answer')}")
-
-    print(f"\nTrace:\n{agent.get_trace()}")
-
-
-if __name__ == "__main__":
-    main()

@@ -10,5 +10,6 @@ class Settings(BaseSettings):
     REPO_PATH: str
     TRIAGE_MODEL: str = "gpt-4o"
     INVESTIGATE_MODEL: str = "gpt-4o"
+    FIX_MODEL: str = "gpt-4o"
 
 settings = Settings()

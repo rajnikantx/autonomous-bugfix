@@ -3,6 +3,7 @@ from langsmith import traceable
 
 from src.graph.states import AgentState, Bug, InvestigationResult
 from src.agents.investigate import Investigate
+from src.step_logger import save_step_output
 
 
 def _get_active_bug(state: AgentState) -> Bug | None:
@@ -38,7 +39,7 @@ def investigate_node(state: AgentState) -> dict:
 
     try:
         investigator = Investigate()
-        pydantic_result = investigator.run(
+        output = investigator.investigate(
             bug_id=bug.bug_id,
             test_name=bug.report.test_name,
             test_file=bug.report.test_file,
@@ -48,45 +49,73 @@ def investigate_node(state: AgentState) -> dict:
             sandbox_path=state["sandbox_path"],
         )
 
+        if not output.results:
+            logger.warning(f"No investigation results for {bug.bug_id}")
+            bug.status = "escalated"
+            save_step_output(state["session_id"], "investigate", {
+                "bug_id": bug.bug_id,
+                "status": bug.status,
+                "investigation": None,
+            })
+            return {"bugs": state["bugs"], "active_bug": None}
+
+        result = output.results[0]
+
         bug.investigation = InvestigationResult(
-            bug_id=pydantic_result.bug_id,
-            test_name=pydantic_result.test_name,
-            root_cause=pydantic_result.root_cause,
-            affected_files=pydantic_result.affected_files,
-            affected_lines=pydantic_result.affected_lines,
-            affected_functions=pydantic_result.affected_functions,
-            affected_classes=pydantic_result.affected_classes,
-            code_snippets=pydantic_result.code_snippets,
-            file_reasoning=pydantic_result.file_reasoning,
-            confidence=pydantic_result.confidence,
-            reasoning_trace=pydantic_result.reasoning_trace,
+            bug_id=result.bug_id,
+            test_name=result.test_name,
+            root_cause=result.root_cause,
+            affected_files=result.affected_files,
+            affected_lines=result.affected_lines,
+            affected_functions=result.affected_functions,
+            affected_classes=result.affected_classes,
+            code_snippets=result.code_snippets,
+            file_reasoning=result.file_reasoning,
+            confidence=result.confidence,
+            reasoning_trace=result.reasoning_trace,
         )
 
         logger.info(
             f"Investigation result for {bug.bug_id}: "
-            f"confidence={pydantic_result.confidence}, "
-            f"affected_files={pydantic_result.affected_files}, "
-            f"root_cause={pydantic_result.root_cause}"
+            f"confidence={result.confidence}, "
+            f"affected_files={result.affected_files}, "
+            f"root_cause={result.root_cause}"
         )
         logger.debug(
-            f"Reasoning trace ({len(pydantic_result.reasoning_trace)} steps): "
-            f"{pydantic_result.reasoning_trace}"
+            f"Reasoning trace ({len(result.reasoning_trace)} steps): "
+            f"{result.reasoning_trace}"
         )
 
-        if pydantic_result.confidence == "high":
+        if result.confidence == "high":
             bug.status = "patching"
             logger.info(
                 f"Bug {bug.bug_id} -> patching. "
-                f"Affected files: {pydantic_result.affected_files}"
+                f"Affected files: {result.affected_files}"
             )
+            save_step_output(state["session_id"], "investigate", {
+                "bug_id": bug.bug_id,
+                "status": bug.status,
+                "investigation": bug.investigation,
+            })
+            return {"bugs": state["bugs"], "active_bug": bug}
         else:
             bug.status = "escalated"
             logger.info(
-                f"Bug {bug.bug_id} -> escalated (confidence={pydantic_result.confidence})"
+                f"Bug {bug.bug_id} -> escalated (confidence={result.confidence})"
             )
+            save_step_output(state["session_id"], "investigate", {
+                "bug_id": bug.bug_id,
+                "status": bug.status,
+                "investigation": bug.investigation,
+            })
+            return {"bugs": state["bugs"], "active_bug": None}
 
     except Exception as e:
         logger.exception(f"Investigation failed for {bug.bug_id}")
         bug.status = "escalated"
-
-    return {"bugs": state["bugs"], "active_bug": None}
+        save_step_output(state["session_id"], "investigate", {
+            "bug_id": bug.bug_id,
+            "status": bug.status,
+            "investigation": None,
+        })
+        return {"bugs": state["bugs"], "active_bug": None}

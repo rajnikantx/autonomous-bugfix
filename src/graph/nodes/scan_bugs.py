@@ -4,6 +4,7 @@ from loguru import logger
 from langsmith import traceable
 
 from src.graph.states import AgentState
+from src.step_logger import save_step_output
 
 BUG_REPORT_DIR= "bug_report"
 PYTEST_BUGREPORT_FILE= "pytest_bugreport.json"
@@ -24,7 +25,7 @@ def scan_bugs(state: AgentState):
     bugreport_path= Path(bugreport_dir) / PYTEST_BUGREPORT_FILE
 
     cmd = [
-        "pytest",
+        "python", "-m", "pytest",
         "--json-report",
         f"--json-report-file={bugreport_path}",
         "--verbose",
@@ -34,22 +35,28 @@ def scan_bugs(state: AgentState):
 
     logger.info(f"generating pytest bug report at : {bugreport_path}")
     try:
-        bugs= subprocess.run(
-            cmd, 
+        bugs = subprocess.run(
+            cmd,
             cwd=sandbox_path,
             capture_output=True,
             text=True
         )
 
         if bugs.returncode != 0:
-            logger.error(f"Tests failed")
+            logger.info(f"Tests failed or non-zero exit — pytest bug report may contain failures")
         logger.info(f"pytest bug report generated at {bugreport_path}")
 
     except Exception as e:
         logger.exception(f"failed pytest bug report generation for {sandbox_path}")
 
-
-    return {
+    result = {
         **state,
         "bugreport_path": str(bugreport_path)
     }
+
+    save_step_output(state["session_id"], "scan_bugs", {
+        "sandbox_path": sandbox_path,
+        "bugreport_path": str(bugreport_path),
+    })
+
+    return result
