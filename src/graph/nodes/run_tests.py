@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 from loguru import logger
 from langsmith import traceable
 
@@ -23,7 +22,6 @@ def run_tests(state: AgentState) -> dict:
     target_bug = active_bug
 
     if target_bug is None:
-        # Look for a bug in testing status
         for bug in bugs:
             if bug.status == "testing":
                 target_bug = bug
@@ -48,7 +46,7 @@ def run_tests(state: AgentState) -> dict:
         "-q",
     ]
 
-    logger.info(f"Running tests for {target_bug.bug_id}")
+    logger.info(f"Running test {report.test_name} for {target_bug.bug_id}")
     try:
         result = subprocess.run(
             cmd,
@@ -57,15 +55,45 @@ def run_tests(state: AgentState) -> dict:
             text=True,
         )
 
-        if result.returncode == 0:
-            target_bug.status = "resolved"
-            logger.info(f"Bug {target_bug.bug_id} resolved")
-        else:
+        if result.returncode != 0:
             target_bug.status = "escalated"
             logger.warning(
                 f"Bug {target_bug.bug_id} still failing after fix:\n"
                 f"{result.stdout}\n{result.stderr}"
             )
+            save_step_output(state["session_id"], "run_tests", {
+                "bug_id": target_bug.bug_id,
+                "status": target_bug.status,
+                "stage": "target_test",
+            })
+            return {"bugs": bugs, "active_bug": None}
+
+        logger.info(f"Target test passed for {target_bug.bug_id}, running regression on {report.test_file}")
+
+        regression_cmd = [
+            "python", "-m", "pytest",
+            report.test_file,
+            "--tb=short",
+            "--no-header",
+            "-q",
+        ]
+        regression = subprocess.run(
+            regression_cmd,
+            cwd=sandbox_path,
+            capture_output=True,
+            text=True,
+        )
+
+        if regression.returncode == 0:
+            target_bug.status = "resolved"
+            logger.info(f"Bug {target_bug.bug_id} resolved — regression clean")
+        else:
+            target_bug.status = "escalated"
+            logger.warning(
+                f"Bug {target_bug.bug_id} fix caused regression in {report.test_file}:\n"
+                f"{regression.stdout}\n{regression.stderr}"
+            )
+
     except Exception as e:
         logger.exception(f"Test run failed for {target_bug.bug_id}")
         target_bug.status = "escalated"
@@ -73,6 +101,8 @@ def run_tests(state: AgentState) -> dict:
     save_step_output(state["session_id"], "run_tests", {
         "bug_id": target_bug.bug_id,
         "status": target_bug.status,
+        "stage": "regression",
+        "test_file": report.test_file,
     })
 
     return {"bugs": bugs, "active_bug": None}

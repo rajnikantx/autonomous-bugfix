@@ -1,25 +1,3 @@
-"""
-Codebase Investigator — ReAct Agent with Separate Structured Extraction
-=======================================================================
-
-ReAct loop with tools → one structured extraction at end using self.step_chain.
-
-Usage:
-    from investigator import Investigate
-    
-    investigator = Investigate()
-    result = investigator.investigate(
-        bug_id="BUG-001",
-        test_name="test_login_fails",
-        test_file="tests/test_auth.py",
-        traceback="Traceback (most recent call last):...",
-        failure_summary="NoneType error when calling verify_credentials",
-        exception_type="AttributeError",
-        sandbox_path="/home/user/project"
-    )
-    print(result.results[0].root_cause)
-"""
-
 import json
 import time
 from enum import Enum
@@ -101,14 +79,29 @@ INVESTIGATOR_EXTRACT_PROMPT = """
     If the transcript doesn't have enough evidence to support a field, leave it empty rather than inventing something plausible-sounding. If the transcript surfaces more than one distinct bug, return one result per bug.
 """
 
+class FileLines(BaseModel):
+    file: str = Field(description="File path")
+    lines: list[int] = Field(default_factory=list, description="Line numbers of interest in this file")
+
+
+class FileSnippet(BaseModel):
+    file: str = Field(description="File path")
+    snippet: str = Field(description="Relevant code block from this file")
+
+
+class FileReasoning(BaseModel):
+    file: str = Field(description="File path")
+    reasoning: str = Field(description="Why this file is linked to the bug")
+
+
 class InvestigationResult(BaseModel):
     bug_id: str = Field(description="ID of the bug being investigated")
     test_name: str = Field(description="Name of the failing test")
     root_cause: str = Field(description="1-2 sentence explanation of the actual bug")
     affected_files: list[str] = Field(default_factory=list, description="All files that need changing")
-    affected_lines: dict[str, list[int]] = Field(
-        default_factory=dict,
-        description="File path mapped to line numbers of interest"
+    affected_lines: list[FileLines] = Field(
+        default_factory=list,
+        description="Per-file line numbers of interest"
     )
     affected_functions: list[str] = Field(
         default_factory=list,
@@ -118,13 +111,13 @@ class InvestigationResult(BaseModel):
         default_factory=list,
         description="Fully qualified class names"
     )
-    code_snippets: dict[str, str] = Field(
-        default_factory=dict,
-        description="File path mapped to relevant code blocks"
+    code_snippets: list[FileSnippet] = Field(
+        default_factory=list,
+        description="Per-file relevant code blocks"
     )
-    file_reasoning: dict[str, str] = Field(
-        default_factory=dict,
-        description="File path mapped to why this file is linked"
+    file_reasoning: list[FileReasoning] = Field(
+        default_factory=list,
+        description="Per-file reasoning for why it's linked to the bug"
     )
     confidence: Literal["high", "medium", "low"] = Field(
         description="Confidence in the root cause analysis"
