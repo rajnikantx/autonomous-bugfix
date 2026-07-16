@@ -42,10 +42,10 @@ class Bug:
         "pending", "investigating", "patching", "testing",
         "reviewing", "resolved", "escalated", "wontfix", "rejected"
     ] = "pending"
+    test: bool = False
     report: FailureReport | None = None
     investigation: InvestigationResult | None = None
     fix: CodeChange | None = None
-    test: bool = False
 
 
 class AgentState(TypedDict, total=False):
@@ -53,6 +53,7 @@ class AgentState(TypedDict, total=False):
     repo_path: str
     sandbox_path: str
     bugreport_path: str
+    dry_run: bool
     bugs: list[Bug]
     active_bug: Bug | None
     pending_fix: list[CodeChange] | None
