@@ -158,6 +158,21 @@ The investigator uses these tools during its ReAct loop:
 | `get_functions_of_file` | List all functions/classes in a file |
 | `get_imports_of_file` | List all imports in a file |
 
+## Roadmap
+
+- [ ] **REST API** -- Deploy as a service with FastAPI for programmatic access
+- [ ] **GitHub App / Webhooks** -- Trigger auto-fix on push, PR, or CI failure events (not just local CLI)
+- [ ] **Docker sandboxing** -- Run investigation, patching, and tests inside Docker containers for full isolation
+- [ ] **Dynamic orchestrator** -- Replace static graph with LLM-driven dynamic routing (design doc in `docs/orchestrator.md`)
+- [ ] **Session persistence** -- Save/resume sessions to resume interrupted runs or replay past fixes
+- [ ] **Report generation** -- Post-run summary report with per-bug breakdown
+- [ ] **Parallel bug fixing** -- Investigate and fix multiple bugs concurrently
+- [ ] **Web dashboard** -- UI to monitor active sessions, view bug statuses, and review diffs before merging
+- [ ] **Non-Python support** -- Extend to JavaScript/TypeScript, Go, Rust projects
+- [ ] **CI/CD integration** -- GitHub Actions / GitLab CI trigger to auto-fix failing tests on PRs
+- [ ] **Human-in-the-loop review** -- Optional approval gate before merging fixes (email/Slack notification)
+- [ ] **Custom tool plugins** -- Allow users to register project-specific exploration tools for the investigator
+
 ## License
 
 MIT
