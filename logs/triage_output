@@ -1,0 +1,248 @@
+{
+  "session_id": "d3e10278-15cb-44b8-81b1-2c81dcc2e7fb",
+  "repo_path": "/home/rajnikant/Github/test-repo",
+  "sandbox_path": "/tmp/bugfix_zqu_ksd9/test-repo",
+  "bugreport_path": "/tmp/bugfix_zqu_ksd9/test-repo/bug_report/pytest_bugreport.json",
+  "bugs": [
+    {
+      "bug_id": "test_add_positive :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_add_positive",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:20: in test_add_positive\n    assert add(2, 3) == 5\nE   assert -1 == 5\nE    +  where -1 = add(2, 3)",
+        "failure_summary": "add(2, 3) returned -1 instead of 5.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_add_negative :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_add_negative",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:23: in test_add_negative\n    assert add(-1, -1) == -2\nE   assert 0 == -2\nE    +  where 0 = add(-1, -1)",
+        "failure_summary": "add(-1, -1) returned 0 instead of -2.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_subtract_positive",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:31: in test_subtract_positive\n    assert subtract(5, 3) == 2\nE   assert 8 == 2\nE    +  where 8 = subtract(5, 3)",
+        "failure_summary": "subtract(5, 3) returned 8 instead of 2.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_subtract_negative_result",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:34: in test_subtract_negative_result\n    assert subtract(1, 5) == -4\nE   assert 6 == -4\nE    +  where 6 = subtract(1, 5)",
+        "failure_summary": "subtract(1, 5) returned 6 instead of -4.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_multiply_by_zero",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:42: in test_multiply_by_zero\n    assert multiply(5, 0) == 0\nE   assert None == 0\nE    +  where None = multiply(5, 0)",
+        "failure_summary": "multiply(5, 0) returned None instead of 0.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_multiply_zero_by_zero",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:45: in test_multiply_zero_by_zero\n    assert multiply(0, 0) == 0\nE   assert None == 0\nE    +  where None = multiply(0, 0)",
+        "failure_summary": "multiply(0, 0) returned None instead of 0.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_divide_by_zero",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:54: in test_divide_by_zero\n    divide(10, 0)\nsrc/calculator.py:24: in divide\n    raise ValueError(\"Cannot divide by zero\")  # BUG: should be ZeroDivisionError\nE   ValueError: Cannot divide by zero",
+        "failure_summary": "ValueError thrown instead of ZeroDivisionError for division by zero.",
+        "exception_type": "ValueError",
+        "severity": "high",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_power_basic :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_power_basic",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:59: in test_power_basic\n    assert power(2, 3) == 8\nE   assert 4 == 8\nE    +  where 4 = power(2, 3)",
+        "failure_summary": "power(2, 3) returned 4 instead of 8.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_power_one :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_power_one",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:65: in test_power_one\n    assert power(7, 1) == 7\nE   assert 1 == 7\nE    +  where 1 = power(7, 1)",
+        "failure_summary": "power(7, 1) returned 1 instead of 7.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_is_prime_1 :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_is_prime_1",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:98: in test_is_prime_1\n    assert is_prime(1) is False\nE   assert True is False\nE    +  where True = is_prime(1)",
+        "failure_summary": "is_prime(1) returned True instead of False.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_is_prime_0 :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_is_prime_0",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:101: in test_is_prime_0\n    assert is_prime(0) is False\nE   assert True is False\nE    +  where True = is_prime(0)",
+        "failure_summary": "is_prime(0) returned True instead of False.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_is_prime_negative :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_is_prime_negative",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:104: in test_is_prime_negative\n    assert is_prime(-5) is False\nE   assert True is False\nE    +  where True = is_prime(-5)",
+        "failure_summary": "is_prime(-5) returned True instead of False.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_fib_0 :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_fib_0",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:109: in test_fib_0\n    assert fibonacci(0) == 0\nE   assert 1 == 0\nE    +  where 1 = fibonacci(0)",
+        "failure_summary": "fibonacci(0) returned 1 instead of 0.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_parse_invalid :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_parse_invalid",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:123: in test_parse_invalid\n    assert parse_int(\"abc\") is None\nE   AssertionError: assert -1 is None\nE    +  where -1 = parse_int('abc')",
+        "failure_summary": "parse_int('abc') returned -1 instead of None.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    },
+    {
+      "bug_id": "test_parse_none :: tests/test_calculator.py",
+      "status": "pending",
+      "report": {
+        "test_name": "test_parse_none",
+        "test_file": "tests/test_calculator.py",
+        "traceback": "tests/test_calculator.py:126: in test_parse_none\n    assert parse_int(None) is None\nE   assert -1 is None\nE    +  where -1 = parse_int(None)",
+        "failure_summary": "parse_int(None) returned -1 instead of None.",
+        "exception_type": "AssertionError",
+        "severity": "medium",
+        "auto_fixable": true
+      },
+      "investigation": null,
+      "fix": null,
+      "test": false
+    }
+  ]
+}

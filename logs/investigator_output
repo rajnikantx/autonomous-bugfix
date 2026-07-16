@@ -1,0 +1,31 @@
+{
+  "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+  "investigation": {
+    "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+    "test_name": "test_divide_by_zero",
+    "root_cause": "The divide function in src/calculator.py raises a ValueError instead of a ZeroDivisionError when the divisor is zero.",
+    "affected_files": [
+      "src/calculator.py"
+    ],
+    "affected_lines": [
+      "file='src/calculator.py' lines=[24]"
+    ],
+    "affected_functions": [
+      "src.calculator.divide"
+    ],
+    "affected_classes": [],
+    "code_snippets": [
+      "file='src/calculator.py' snippet=' 21     def divide(a, b):\\n 22         \"\"\"Divide a by b.\"\"\"\\n 23         if b == 0:\\n 24 >>>         raise ValueError(\"Cannot divide by zero\")  # BUG: should be ZeroDivisionError\\n 25         return a / b'"
+    ],
+    "file_reasoning": [
+      "file='src/calculator.py' reasoning='This file contains the divide function which improperly raises a ValueError instead of a ZeroDivisionError when dividing by zero.'"
+    ],
+    "confidence": "high",
+    "reasoning_trace": [
+      "The traceback indicated an issue in the divide function at line 24 of src/calculator.py.",
+      "A code snippet was extracted to understand the context, confirming that a ValueError is raised instead of a ZeroDivisionError when b is zero.",
+      "Callers of the divide function were checked to ensure no dependencies on raising a ValueError.",
+      "The test cases confirmed that test_divide_by_zero expects a ZeroDivisionError, validating the bug's presence."
+    ]
+  }
+}

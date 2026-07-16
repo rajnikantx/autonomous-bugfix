@@ -501,4 +501,6 @@ Extract the structured investigation report from the log above.
             if step.result:
                 lines.append(f"    Result: {step.result[:500]}...")
         return "\n".join(lines)
-
+    
+    def get_step_chain(self):
+        return self.step_chain

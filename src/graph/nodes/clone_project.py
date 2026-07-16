@@ -6,7 +6,6 @@ from loguru import logger
 from langsmith import traceable
 
 from src.graph.states import AgentState
-from src.step_logger import save_step_output
 
 
 def _process_clone_output(output):
@@ -38,14 +37,7 @@ def clone_project(state: AgentState):
         logger.exception(f"sandbox creation failed for {repo_path}")
         raise
 
-    result = {
+    return {
         **state,
         "sandbox_path": sandbox_path,
     }
-
-    save_step_output(state["session_id"], "clone_project", {
-        "repo_path": repo_path,
-        "sandbox_path": sandbox_path,
-    })
-
-    return result

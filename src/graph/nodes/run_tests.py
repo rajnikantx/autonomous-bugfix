@@ -1,9 +1,18 @@
 import subprocess
+from copy import deepcopy
 from loguru import logger
 from langsmith import traceable
 
-from src.graph.states import AgentState
-from src.step_logger import save_step_output
+from src.graph.states import AgentState, Bug
+
+
+def _update_bug_in_list(bugs: list[Bug], bug_id: str, updated_bug: Bug) -> list[Bug]:
+    new_bugs = deepcopy(bugs)
+    for i, b in enumerate(new_bugs):
+        if b.bug_id == bug_id:
+            new_bugs[i] = updated_bug
+            break
+    return new_bugs
 
 
 def _process_run_tests_output(output):
@@ -34,8 +43,10 @@ def run_tests(state: AgentState) -> dict:
     report = target_bug.report
     if report is None:
         logger.warning(f"Bug {target_bug.bug_id} has no report")
-        target_bug.status = "escalated"
-        return {"bugs": bugs, "active_bug": None}
+        updated_bug = deepcopy(target_bug)
+        updated_bug.status = "escalated"
+        new_bugs = _update_bug_in_list(bugs, target_bug.bug_id, updated_bug)
+        return {"bugs": new_bugs, "active_bug": None}
 
     cmd = [
         "python", "-m", "pytest",
@@ -56,53 +67,23 @@ def run_tests(state: AgentState) -> dict:
         )
 
         if result.returncode != 0:
-            target_bug.status = "escalated"
+            updated_bug = deepcopy(target_bug)
+            updated_bug.status = "escalated"
             logger.warning(
                 f"Bug {target_bug.bug_id} still failing after fix:\n"
                 f"{result.stdout}\n{result.stderr}"
             )
-            save_step_output(state["session_id"], "run_tests", {
-                "bug_id": target_bug.bug_id,
-                "status": target_bug.status,
-                "stage": "target_test",
-            })
-            return {"bugs": bugs, "active_bug": None}
+            new_bugs = _update_bug_in_list(bugs, target_bug.bug_id, updated_bug)
+            return {"bugs": new_bugs, "active_bug": None}
 
-        logger.info(f"Target test passed for {target_bug.bug_id}, running regression on {report.test_file}")
-
-        regression_cmd = [
-            "python", "-m", "pytest",
-            report.test_file,
-            "--tb=short",
-            "--no-header",
-            "-q",
-        ]
-        regression = subprocess.run(
-            regression_cmd,
-            cwd=sandbox_path,
-            capture_output=True,
-            text=True,
-        )
-
-        if regression.returncode == 0:
-            target_bug.status = "resolved"
-            logger.info(f"Bug {target_bug.bug_id} resolved — regression clean")
-        else:
-            target_bug.status = "escalated"
-            logger.warning(
-                f"Bug {target_bug.bug_id} fix caused regression in {report.test_file}:\n"
-                f"{regression.stdout}\n{regression.stderr}"
-            )
+        updated_bug = deepcopy(target_bug)
+        updated_bug.status = "reviewing"
+        logger.info(f"Bug {target_bug.bug_id} -> reviewing — test passed")
 
     except Exception as e:
         logger.exception(f"Test run failed for {target_bug.bug_id}")
-        target_bug.status = "escalated"
+        updated_bug = deepcopy(target_bug)
+        updated_bug.status = "escalated"
 
-    save_step_output(state["session_id"], "run_tests", {
-        "bug_id": target_bug.bug_id,
-        "status": target_bug.status,
-        "stage": "regression",
-        "test_file": report.test_file,
-    })
-
-    return {"bugs": bugs, "active_bug": None}
+    new_bugs = _update_bug_in_list(bugs, target_bug.bug_id, updated_bug)
+    return {"bugs": new_bugs, "active_bug": None}

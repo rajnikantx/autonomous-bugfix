@@ -1,16 +1,20 @@
+import sys
+import uuid
+
 from dotenv import load_dotenv
 load_dotenv()
 
-import uuid
+from loguru import logger
+
+# logger.remove()
+# logger.add("logs/run.log", level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}")
 
 from src.graph.workflow import workflow
 from src.config import settings
-from src.step_logger import init_logging
 
 
 def main():
     session_id = str(uuid.uuid4())
-    init_logging(session_id)
 
     initial_state = {
         "session_id": session_id,

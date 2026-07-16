@@ -1,10 +1,19 @@
+from copy import deepcopy
 from pathlib import Path
 from loguru import logger
 from langsmith import traceable
 
 from src.graph.states import AgentState, Bug, CodeChange
 from src.agents.fix import Fixer
-from src.step_logger import save_step_output
+
+
+def _update_bug_in_list(bugs: list[Bug], bug_id: str, updated_bug: Bug) -> list[Bug]:
+    new_bugs = deepcopy(bugs)
+    for i, b in enumerate(new_bugs):
+        if b.bug_id == bug_id:
+            new_bugs[i] = updated_bug
+            break
+    return new_bugs
 
 
 def _process_generate_fix_output(output):
@@ -30,12 +39,10 @@ def generate_fix(state: AgentState) -> dict:
 
     if bug.investigation is None:
         logger.warning(f"Bug {bug.bug_id} has no investigation result — skipping fix generation")
-        bug.status = "escalated"
-        save_step_output(state["session_id"], "generate_fix", {
-            "bug_id": bug.bug_id,
-            "status": bug.status,
-        })
-        return {"bugs": state["bugs"], "active_bug": None}
+        updated_bug = deepcopy(bug)
+        updated_bug.status = "escalated"
+        new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+        return {"bugs": new_bugs, "active_bug": None}
 
     sandbox_path = state["sandbox_path"]
 
@@ -57,19 +64,23 @@ def generate_fix(state: AgentState) -> dict:
 
         if not file_contents:
             logger.warning(f"No affected files readable for {bug.bug_id}")
-            bug.status = "escalated"
-            return {"bugs": state["bugs"], "active_bug": None}
+            updated_bug = deepcopy(bug)
+            updated_bug.status = "escalated"
+            new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+            return {"bugs": new_bugs, "active_bug": None}
 
         fixer = Fixer()
         fix_output = fixer.fix(
-            report=[bug.investigation],
+            report=bug.investigation,
             sandbox_path=sandbox_path,
         )
 
         if fix_output is None or not fix_output.changes:
             logger.warning(f"No fix generated for {bug.bug_id}")
-            bug.status = "escalated"
-            return {"bugs": state["bugs"], "active_bug": None}
+            updated_bug = deepcopy(bug)
+            updated_bug.status = "escalated"
+            new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+            return {"bugs": new_bugs, "active_bug": None}
 
         pending_fix = [
             CodeChange(
@@ -81,20 +92,17 @@ def generate_fix(state: AgentState) -> dict:
             for c in fix_output.changes
         ]
 
-        bug.status = "patching"
+        updated_bug = deepcopy(bug)
+        updated_bug.status = "patching"
         logger.info(
             f"Bug {bug.bug_id}: generated {len(pending_fix)} change(s)"
         )
 
     except Exception as e:
         logger.exception(f"Fix generation failed for {bug.bug_id}")
-        bug.status = "escalated"
+        updated_bug = deepcopy(bug)
+        updated_bug.status = "escalated"
         pending_fix = None
 
-    save_step_output(state["session_id"], "generate_fix", {
-        "bug_id": bug.bug_id,
-        "status": bug.status,
-        "change_count": len(pending_fix) if pending_fix else 0,
-    })
-
-    return {"bugs": state["bugs"], "active_bug": bug, "pending_fix": pending_fix}
+    new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+    return {"bugs": new_bugs, "active_bug": updated_bug, "pending_fix": pending_fix}

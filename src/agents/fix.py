@@ -64,8 +64,8 @@ class EditPlan(BaseModel):
 
 
 PLANNER = """You are a senior software engineer planning a bug fix.
-Given a list of investigation findings, produce an ordered, minimal-risk plan of the
-edits needed to fix the reported bugs. Do not write code yet: decide which files need
+Given an investigation report, produce an ordered, minimal-risk plan of the
+edits needed to fix the reported bug. Do not write code yet: decide which files need
 to change, in what order, why that order matters, and any constraints the implementer
 must respect (e.g. sync vs async context, existing function signatures)."""
 
@@ -97,18 +97,20 @@ class Fixer:
         self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     @staticmethod
-    def _serialize_report(report: List[InvestigationResult]) -> str:
+    def _serialize_report(report: InvestigationResult) -> str:
         """Best-effort JSON serialization. Works whether InvestigationResult is a
-        pydantic BaseModel or a plain dict/TypedDict."""
+        dataclass, pydantic BaseModel, or a plain dict/TypedDict."""
         try:
-            return json.dumps([
-                dataclasses.asdict(item) if hasattr(item, "__dataclass_fields__") else dict(item)
-                for item in report
-            ], indent=2, default=str)
+            if hasattr(report, "__dataclass_fields__"):
+                return json.dumps(dataclasses.asdict(report), indent=2, default=str)
+            elif hasattr(report, "model_dump"):
+                return json.dumps(report.model_dump(), indent=2, default=str)
+            else:
+                return json.dumps(dict(report), indent=2, default=str)
         except Exception:
             return str(report)
 
-    def _plan(self, report: List[InvestigationResult]) -> Optional[EditPlan]:
+    def _plan(self, report: InvestigationResult) -> Optional[EditPlan]:
         messages = [
             {"role": "system", "content": PLANNER},
             {"role": "user", "content": f"Fix the following bugs:\n{self._serialize_report(report)}"},
@@ -131,7 +133,7 @@ class Fixer:
 
     def _replan(
         self,
-        report: List[InvestigationResult],
+        report: InvestigationResult,
         previous_plan: EditPlan,
         failed_step: EditPlanStep,
     ) -> Optional[EditPlan]:
@@ -164,7 +166,7 @@ class Fixer:
             logger.exception("Fixer._replan failed")
             return None
 
-    def _generate(self, plan: EditPlan, report: List[InvestigationResult]) -> Optional[FixOutput]:
+    def _generate(self, plan: EditPlan, report: InvestigationResult) -> Optional[FixOutput]:
         messages = [
             {"role": "system", "content": GENERATOR},
             {
@@ -200,7 +202,7 @@ class Fixer:
             logger.warning("Could not read %s while validating a patch", file_path)
             return False
 
-    def fix(self, report: List[InvestigationResult], sandbox_path: Optional[str] = None) -> Optional[FixOutput]:
+    def fix(self, report: InvestigationResult, sandbox_path: Optional[str] = None) -> Optional[FixOutput]:
         """Plan, generate, and validate a patch. If any change's old_code can't be
         found verbatim in its target file, replan just the offending step(s) and
         regenerate, up to MAX_REPLAN_ATTEMPTS times."""

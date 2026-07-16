@@ -1,10 +1,19 @@
+from copy import deepcopy
 from pathlib import Path
 from loguru import logger
 from langsmith import traceable
 
-from src.graph.states import AgentState
+from src.graph.states import AgentState, Bug
 from src.tools.file_ops import apply_patch
-from src.step_logger import save_step_output
+
+
+def _update_bug_in_list(bugs: list[Bug], bug_id: str, updated_bug: Bug) -> list[Bug]:
+    new_bugs = deepcopy(bugs)
+    for i, b in enumerate(new_bugs):
+        if b.bug_id == bug_id:
+            new_bugs[i] = updated_bug
+            break
+    return new_bugs
 
 
 def _process_apply_fix_output(output):
@@ -25,12 +34,10 @@ def apply_fix(state: AgentState) -> dict:
 
     if not pending_fix:
         logger.warning(f"apply_fix: no pending fix for {bug.bug_id}")
-        bug.status = "escalated"
-        save_step_output(state["session_id"], "apply_fix", {
-            "bug_id": bug.bug_id,
-            "status": bug.status,
-        })
-        return {"bugs": state["bugs"], "active_bug": None}
+        updated_bug = deepcopy(bug)
+        updated_bug.status = "escalated"
+        new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+        return {"bugs": new_bugs, "active_bug": None}
 
     sandbox_path = state["sandbox_path"]
 
@@ -50,11 +57,12 @@ def apply_fix(state: AgentState) -> dict:
                 failed += 1
                 logger.error(f"Failed to apply: {change.file_path} — {change.description}")
 
+        updated_bug = deepcopy(bug)
         if failed > 0:
             logger.warning(f"{failed}/{applied + failed} patches failed for {bug.bug_id}")
-            bug.status = "escalated"
+            updated_bug.status = "escalated"
         else:
-            bug.status = "testing"
+            updated_bug.status = "testing"
             logger.info(
                 f"Bug {bug.bug_id} -> testing. "
                 f"Applied {applied} change(s)."
@@ -62,11 +70,8 @@ def apply_fix(state: AgentState) -> dict:
 
     except Exception as e:
         logger.exception(f"Fix application failed for {bug.bug_id}")
-        bug.status = "escalated"
+        updated_bug = deepcopy(bug)
+        updated_bug.status = "escalated"
 
-    save_step_output(state["session_id"], "apply_fix", {
-        "bug_id": bug.bug_id,
-        "status": bug.status,
-    })
-
-    return {"bugs": state["bugs"], "active_bug": None, "pending_fix": None}
+    new_bugs = _update_bug_in_list(state["bugs"], bug.bug_id, updated_bug)
+    return {"bugs": new_bugs, "active_bug": None, "pending_fix": None}

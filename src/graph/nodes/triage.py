@@ -3,10 +3,10 @@ import uuid
 from pathlib import Path
 from loguru import logger
 from langsmith import traceable
+from dataclasses import asdict
 
 from src.graph.states import AgentState, FailureReport, Bug
 from src.agents.triage import Triage
-from src.step_logger import save_step_output
 
 
 def _process_triage_output(output):
@@ -61,14 +61,15 @@ def triage(state: AgentState):
 
     logger.info(f"Created {len(bugs)} bug(s)")
 
-    save_step_output(state["session_id"], "triage", {
-        "bugreport_path": str(bugreport_path),
-        "bug_count": len(bugs),
-        "bugs": [
-            {"bug_id": b.bug_id, "status": b.status, "test_name": b.report.test_name if b.report else None}
-            for b in bugs
-        ],
-    })
+    triage_output_path = "logs/triage_output"
+    logger.debug(f"triage output logged at {triage_output_path}")
+
+    output_data = {
+        **state,
+        "bugs": [asdict(b) for b in bugs]
+    }
+    with open(triage_output_path, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False, default=str)
 
     return {
         **state, 

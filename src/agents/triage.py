@@ -97,3 +97,5 @@ class Triage:
         except Exception as e:
             logger.error(f"Failed to extract structured bug report: {e}")
             return None
+        
+        

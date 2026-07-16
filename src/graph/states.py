@@ -1,4 +1,4 @@
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, List
 from dataclasses import dataclass, field
 
 
@@ -44,6 +44,8 @@ class Bug:
     ] = "pending"
     report: FailureReport | None = None
     investigation: InvestigationResult | None = None
+    fix: CodeChange | None = None
+    test: bool = False
 
 
 class AgentState(TypedDict, total=False):
@@ -54,3 +56,6 @@ class AgentState(TypedDict, total=False):
     bugs: list[Bug]
     active_bug: Bug | None
     pending_fix: list[CodeChange] | None
+    applied_fixes: list[CodeChange]
+    investigation_history: List[InvestigationResult]
+    fix_hisory: List[CodeChange]

@@ -1,0 +1,577 @@
+[
+  {
+    "bug_id": "test_add_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_positive :: tests/test_calculator.py",
+      "test_name": "test_add_positive",
+      "root_cause": "The `add` function in `src/calculator.py` uses the subtraction operator (`-`) instead of the addition operator (`+`), causing it to return the difference of two numbers instead of their sum.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[6]"
+      ],
+      "affected_functions": [
+        "add"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='   4 | def add(a, b):\\n   5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n   6 |     return a - b  # BUG: wrong operator (should be +)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The incorrect subtraction operator in the `add` function implementation needs to be changed to an addition operator to fix the logic.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test `test_add_positive` failed because the `add` function returned `-1` instead of `5`.",
+        "Checked the `add` function implementation to find it uses the subtraction operator (`-`) instead of addition.",
+        "The incorrect operator in the `add` function is the root cause of the test failure."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_add_negative :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_negative :: tests/test_calculator.py",
+      "test_name": "test_add_negative",
+      "root_cause": "The test likely failed because it was executed against an outdated version of the `add` function, which did not correctly implement addition.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[6]"
+      ],
+      "affected_functions": [
+        "add"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='4 | def add(a, b):\\n5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n6 |     return a + b  # Fixed: changed to correct operator (+)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The `add` function in `src/calculator.py` was recently fixed; it is the function under test.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The investigation started by noting the test failure indicating the `add` function returns 0 instead of -2.",
+        "The `get_function_definition` tool retrieved the `add` function's code, showing a comment about a recent fix to use the correct operator (+).",
+        "Despite the correct implementation, the investigator checked the test setup to rule out setup issues.",
+        "The test `test_add_negative` was examined and found to be logically correct.",
+        "The import statements in `tests/test_calculator.py` confirmed the `add` function from `src.calculator` was tested.",
+        "The problem was concluded to be due to running the test against an outdated version of the code before the fix."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+      "test_name": "test_subtract_positive",
+      "root_cause": "The `subtract` function uses the addition operator `+` instead of the subtraction operator `-`, causing it to add numbers instead of subtracting them.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[11]"
+      ],
+      "affected_functions": [
+        "subtract"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='   9 | def subtract(a, b):\\n  10 |     \"\"\"Return the difference of two numbers.\"\"\"\\n  11 |     return a + b  # BUG: wrong operator (should be -)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the `subtract` function with the incorrect addition operator that needs to be changed to subtraction.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test failure indicates an incorrect result in the `subtract` function, returning 8 instead of 2 when subtracting 3 from 5.",
+        "Located the `subtract` function definition in `src/calculator.py`, confirming that it incorrectly uses `+` instead of `-`.",
+        "Determined that the incorrect operator is the root cause of the test failure, and concluded that changing `+` to `-` in line 11 will resolve the issue."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+      "test_name": "test_subtract_negative_result",
+      "root_cause": "The `subtract` function is using the addition operator (`+`) instead of the subtraction operator (`-`).",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[11]"
+      ],
+      "affected_functions": [
+        "src.calculator.subtract"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='  9 | def subtract(a, b):\\n 10 |     \"\"\"Return the difference of two numbers.\"\"\"\\n 11 |     return a + b  # BUG: wrong operator (should be -)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning=\"This file contains the `subtract` function, which uses a '+' operator instead of '-', causing the bug.\""
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test `test_subtract_negative_result` failed because the `subtract` function returned `6` instead of `-4`.",
+        "Located the definition of the `subtract` function in `src/calculator.py`.",
+        "Identified that the function incorrectly uses the addition operator instead of the subtraction operator, causing the test failure.",
+        "Concluded the root cause is the incorrect operator usage in the `subtract` function implementation."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+      "test_name": "test_multiply_by_zero",
+      "root_cause": "The `multiply` function returns `None` instead of `0` when one of the operands is zero, which contradicts its intended behavior as described in the docstring.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[17]"
+      ],
+      "affected_functions": [
+        "multiply"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='16 |     if a == 0 or b == 0:\\n17 |         return None  # BUG: should return 0, not None'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The logical error in the `multiply` function is located in this file; line 17 must be corrected to return `0` instead of `None` when an operand is zero.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "Identified that the `multiply` function is returning `None` instead of `0` when an operand is zero, suggesting a logical error.",
+        "Retrieved the `multiply` function's source code and confirmed the incorrect return value on line 17 from `None` to `0`.",
+        "Checked all call sites of the `multiply` function to ensure no other parts of the code depend on the incorrect behavior.",
+        "Found that all the test cases align with the intended behavior; thus, changing the return value to `0` will not break existing functionality."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+      "test_name": "test_multiply_zero_by_zero",
+      "root_cause": "The function implementation, import, and test setup are all correct, suggesting an external issue related to the test environment or execution context, rather than a problem in the code logic itself.",
+      "affected_files": [
+        "tests/test_calculator.py",
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='tests/test_calculator.py' lines=[41, 42, 44, 45]",
+        "file='src/calculator.py' lines=[14, 15, 16, 17, 18]"
+      ],
+      "affected_functions": [
+        "src.calculator.multiply"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='14 | def multiply(a, b):\\n15 |     \"\"\"Return the product of two numbers. Returns 0 if either operand is 0.\"\"\"\\n16 |     if a == 0 or b == 0:\\n17 |         return 0  # Corrected to return 0 when an operand is zero\\n18 |     return a * b'",
+        "file='tests/test_calculator.py' snippet='41 | def test_multiply_by_zero(self):\\n42 |     assert multiply(5, 0) == 0\\n44 | def test_multiply_zero_by_zero(self):\\n45 |     assert multiply(0, 0) == 0'"
+      ],
+      "file_reasoning": [
+        "file='tests/test_calculator.py' reasoning=\"This file contains the test case 'test_multiply_zero_by_zero', which is correctly written to assert the expected behavior of the 'multiply' function.\"",
+        "file='src/calculator.py' reasoning=\"This file contains the implementation of the 'multiply' function, which the test is targeting. The function's logic appears correct based on its code.\""
+      ],
+      "confidence": "medium",
+      "reasoning_trace": [
+        "The investigator started by locating the definition of the 'multiply' function to verify its logic.",
+        "The function's implementation was found and appeared correct as it explicitly returns 0 when either operand is 0.",
+        "The investigation then checked the 'tests/test_calculator.py' file to ensure the 'multiply' function was imported correctly.",
+        "The import statement was verified to be correct, importing 'multiply' along with other functions.",
+        "Next, the specific test case 'test_multiply_zero_by_zero' was examined, and its logic was found to be correct in asserting the expected behavior.",
+        "A search was conducted across the codebase to confirm there was no other definition of 'multiply' that could shadow the correct one, which confirmed only one correct definition exists.",
+        "The investigation concluded that since the function implementation, import, and test are all correct, the issue might be due to an external factor such as the test environment or execution context."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+      "test_name": "test_divide_by_zero",
+      "root_cause": "The divide function in src/calculator.py raises a ValueError when the divisor is zero, but it should raise a ZeroDivisionError instead.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[24]"
+      ],
+      "affected_functions": [
+        "divide"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='def divide(a, b):\\n    \"\"\"Divide a by b.\"\"\"\\n    if b == 0:\\n        raise ValueError(\"Cannot divide by zero\")  # BUG: should be ZeroDivisionError\\n    return a / b'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the divide function, which needs to change from raising a ValueError to raising a ZeroDivisionError for division by zero.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The initial traceback pointed to the divide function in src/calculator.py at line 24, indicating that a ValueError was incorrectly raised when dividing by zero.",
+        "A snippet was extracted around this line to understand the context, confirming that a ValueError is raised instead of a ZeroDivisionError.",
+        "The investigation then confirmed that the divide function is called in two specific test cases, including test_divide_by_zero, which explicitly expects a ZeroDivisionError.",
+        "Concluded that changing the exception type to ZeroDivisionError will resolve the failing test without impacting unrelated code, as these are the only function call sites."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_add_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_positive :: tests/test_calculator.py",
+      "test_name": "test_add_positive",
+      "root_cause": "The add function is using the subtraction operator (-) instead of the addition operator (+), leading it to return the difference instead of the sum of two numbers.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[6]"
+      ],
+      "affected_functions": [
+        "add"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='   4 | def add(a, b):\\n   5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n   6 |     return a - b  # BUG: wrong operator (should be +)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the implementation of the add function, which is using an incorrect operator.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test failure indicated that the add function returned -1 instead of 5 when adding 2 and 3.",
+        "The investigation involved locating the add function's implementation in the codebase.",
+        "The function was found in src/calculator.py, where line 6 contained a subtraction instead of an addition.",
+        "The incorrect operator was identified as the root cause of the test failure."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_add_negative :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_negative :: tests/test_calculator.py",
+      "test_name": "test_add_negative",
+      "root_cause": "The test environment is using an outdated version of the `add` function, causing it to return incorrect results for negative inputs, despite the correct implementation in the source code.",
+      "affected_files": [],
+      "affected_lines": [],
+      "affected_functions": [],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='4 | def add(a, b):\\n5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n6 |     return a + b  # BUG FIXED: changed to correct operator (+)'"
+      ],
+      "file_reasoning": [],
+      "confidence": "medium",
+      "reasoning_trace": [
+        "The `add` function was examined and found to correctly implement addition using the '+' operator, but a comment suggested a recent change/fix.",
+        "Attempts to locate the `test_add_negative` function in `tests/test_calculator.py` initially failed, indicating file path issues.",
+        "The function was eventually located through a search, confirming its presence in the specified file.",
+        "The test file imports the correct `add` function, and tests including `test_add_negative` seem correctly defined.",
+        "Only one version of the `add` function exists in the codebase, ruling out discrepancies from multiple definitions.",
+        "The root cause was identified as the test environment not reflecting the recent fix in the `add` function implementation."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+      "test_name": "test_subtract_positive",
+      "root_cause": "The subtract function is using the addition operator (`+`) instead of the subtraction operator (`-`), causing it to return an incorrect result.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[11]"
+      ],
+      "affected_functions": [
+        "subtract"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='9 | def subtract(a, b):\\n10 |     \"\"\"Return the difference of two numbers.\"\"\"\\n11 |     return a + b  # BUG: wrong operator (should be -)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The wrong operator is used in the subtract function, which is implemented in this file.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test failure suggested an issue with the logic in the subtract function, which returns 8 instead of 2 when subtracting 3 from 5.",
+        "The get_function_definition tool was used to retrieve the subtract function's source code.",
+        "The function revealed the use of an incorrect addition operator, confirming the bug's root cause."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+      "test_name": "test_subtract_negative_result",
+      "root_cause": "The `subtract` function is incorrectly using the addition operator (`+`) instead of the subtraction operator (`-`).",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[11]"
+      ],
+      "affected_functions": [
+        "src.calculator.subtract"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='def subtract(a, b):\\n    \"\"\"Return the difference of two numbers.\"\"\"\\n    return a + b  # BUG: wrong operator (should be -)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The `subtract` function in this file uses the incorrect operator, causing the test failure.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test failed because the `subtract` function returned 6 instead of -4 when subtracting 5 from 1, indicative of a bug in the `subtract` function's implementation.",
+        "Used `grep_codebase` to locate the `subtract` function's definition in `src/calculator.py` at line 9.",
+        "Extracted a code snippet around line 9 to examine the function's implementation and found that it uses `a + b` instead of `a - b`.",
+        "Concluded that the incorrect operator in the `subtract` function is the root cause of the test failure."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+      "test_name": "test_multiply_by_zero",
+      "root_cause": "The multiply function returns None instead of 0 when either operand is 0 due to incorrect return value assignment.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[17]"
+      ],
+      "affected_functions": [
+        "multiply"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='16 | if a == 0 or b == 0:\\n17 |         return None  # BUG: should return 0, not None'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the multiply function, which has the erroneous return statement that causes the test failure.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "Observed the test failure message indicating multiply function returns None instead of 0.",
+        "Located and reviewed the multiply function implementation in src/calculator.py.",
+        "Identified that line 17 incorrectly returns None when either operand is 0, despite the docstring specifying a return of 0.",
+        "Determined this is the root cause and no further exploration is required."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_multiply_zero_by_zero :: tests/test_calculator.py",
+      "test_name": "test_multiply_zero_by_zero",
+      "root_cause": "The multiply function incorrectly returns None instead of 0 when either operand is 0.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[16, 17]"
+      ],
+      "affected_functions": [
+        "multiply"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='16 | if a == 0 or b == 0:\\n17 | return None  # BUG: should return 0, not None'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the multiply function, which has the incorrect return value causing the test failures.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The `multiply` function was identified as returning `None` instead of `0` when multiplying `0` by `0`.",
+        "The code of the `multiply` function was retrieved, showing it returned `None` for zero operands, contrary to its docstring.",
+        "Call sites of the `multiply` function were retrieved, showing that all relevant test cases expect a return value of `0` for zero operands.",
+        "The only callers of the `multiply` function are the test cases, indicating no cascade effects from changing this behavior."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_divide_by_zero :: tests/test_calculator.py",
+      "test_name": "test_divide_by_zero",
+      "root_cause": "The divide function in src/calculator.py raises a ValueError for division by zero instead of a ZeroDivisionError, which is the standard exception for this case in Python.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[24]"
+      ],
+      "affected_functions": [
+        "divide"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='def divide(a, b):\\n    \"\"\"Divide a by b.\"\"\"\\n    if b == 0:\\n>>>     raise ValueError(\"Cannot divide by zero\")  # BUG: should be ZeroDivisionError\\n    return a / b'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The divide function in this file incorrectly raises a ValueError instead of a ZeroDivisionError for division by zero, which is causing the test to fail.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "Identified from the traceback that the divide function in src/calculator.py is causing the error by raising a ValueError when it should raise a ZeroDivisionError.",
+        "Extracted the relevant code snippet around line 24 in src/calculator.py to confirm the exact issue.",
+        "Confirmed that the code explicitly raises a ValueError when b is zero, which matches the test failure and indicates the root cause."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_add_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_positive :: tests/test_calculator.py",
+      "test_name": "test_add_positive",
+      "root_cause": "The function `add` uses the subtraction operator (`-`) instead of the addition operator (`+`), causing it to return `a - b` rather than `a + b`.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[4, 5, 6]"
+      ],
+      "affected_functions": [
+        "add"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='4 | def add(a, b):\\n5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n6 |     return a - b  # BUG: wrong operator (should be +)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The `add` function in `src/calculator.py` contains the operator error causing the miscalculation and test failure.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test `test_add_positive` failed, showing `add(2, 3)` returns `-1` instead of `5`.",
+        "Investigated the `add` function with `get_function_definition` to check implementation in `src/calculator.py`.",
+        "Discovered the subtraction operator '-' was used instead of addition in line 6."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_add_negative :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_add_negative :: tests/test_calculator.py",
+      "test_name": "test_add_negative",
+      "root_cause": "The add function correctly uses the '+' operator, which supports negative numbers, indicating the issue may be environmental or unrelated to visible code.",
+      "affected_files": [],
+      "affected_lines": [],
+      "affected_functions": [],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='4 | def add(a, b):\\n5 |     \"\"\"Return the sum of two numbers.\"\"\"\\n6 |     return a + b'",
+        "file='tests/test_calculator.py' snippet='22 |     def test_add_negative(self):\\n23 |         assert add(-1, -1) == -2'"
+      ],
+      "file_reasoning": [],
+      "confidence": "low",
+      "reasoning_trace": [
+        "Identified that add should return -2 for (-1, -1) but returns 0, indicating possible handling issues with negatives.",
+        "Located add function in src/calculator.py, confirmed it uses a + b and should handle negatives.",
+        "Searched for other occurrences or modifications to add, found none besides test references.",
+        "Checked src/calculator import in tests/test_calculator.py and verified the correct add is used.",
+        "Read full test file, confirming correct import and test syntax.",
+        "Concluded that function logic is correct and failure is likely due to an external, non-code-related issue."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_positive :: tests/test_calculator.py",
+      "test_name": "test_subtract_positive",
+      "root_cause": "The `subtract` function incorrectly uses the addition operator (+) instead of the subtraction operator (-).",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[11]"
+      ],
+      "affected_functions": [
+        "src.calculator.subtract"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='def subtract(a, b):\\n    \"\"\"Return the difference of two numbers.\"\"\"\\n    return a + b  # BUG: wrong operator (should be -)'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='This file contains the `subtract` function where the incorrect operator is used, causing the test failure.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The test failure indicates that the `subtract` function returns an incorrect result, prompting an examination of its implementation.",
+        "The `subtract` function is located at line 9 in `src/calculator.py`.",
+        "The implementation revealed that the function incorrectly uses the addition operator instead of the subtraction operator, directly causing the test failure."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_subtract_negative_result :: tests/test_calculator.py",
+      "test_name": "test_subtract_negative_result",
+      "root_cause": "The root cause of the test failure is not due to an issue in the `subtract` function or the test code. The function implementation and the test setup are both correct, suggesting the issue might be external, such as in the test execution environment.",
+      "affected_files": [],
+      "affected_lines": [],
+      "affected_functions": [],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='   9 >>> def subtract(a, b):\\n  10         \"\"\"Return the difference of two numbers.\"\"\"\\n  11         return a - b  # Corrected operator'",
+        "file='tests/test_calculator.py' snippet='  33         def test_subtract_negative_result(self):\\n  34 >>>         assert subtract(1, 5) == -4'"
+      ],
+      "file_reasoning": [],
+      "confidence": "low",
+      "reasoning_trace": [
+        "Started by identifying that the `subtract` function is returning incorrect results and searched for its definition.",
+        "Found the definition of the `subtract` function in `src/calculator.py` at line 9 and checked its implementation.",
+        "The `subtract` function implementation was correct, using the subtraction operator as expected.",
+        "Checked the test `test_subtract_negative_result` in `tests/test_calculator.py` to ensure it was written correctly.",
+        "Verified that the test was correctly calling the `subtract` function with correct expectations and parameters.",
+        "Reviewed imports in `tests/test_calculator.py` and confirmed the `subtract` function from `src.calculator` was imported correctly.",
+        "Concluded that the code is correct, and identified the potential cause as an external issue with the test execution environment."
+      ]
+    }
+  },
+  {
+    "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+    "investigation": {
+      "bug_id": "test_multiply_by_zero :: tests/test_calculator.py",
+      "test_name": "test_multiply_by_zero",
+      "root_cause": "The multiply function returns None instead of 0 when either operand is 0, contradicting its intended behavior as per the function's docstring.",
+      "affected_files": [
+        "src/calculator.py"
+      ],
+      "affected_lines": [
+        "file='src/calculator.py' lines=[16, 17]"
+      ],
+      "affected_functions": [
+        "calculator.multiply"
+      ],
+      "affected_classes": [],
+      "code_snippets": [
+        "file='src/calculator.py' snippet='def multiply(a, b):\\n    \"\"\"Return the product of two numbers. Returns 0 if either operand is 0.\"\"\"\\n    if a == 0 or b == 0:\\n        return None  # BUG: should return 0, not None\\n    return a * b'"
+      ],
+      "file_reasoning": [
+        "file='src/calculator.py' reasoning='The multiply function in this file has a logical error where it returns None instead of 0 when handling zero operands.'"
+      ],
+      "confidence": "high",
+      "reasoning_trace": [
+        "The investigator identified that the multiply function returns None instead of 0 when either operand is 0, contrary to the function's docstring.",
+        "The implementation of the multiply function was checked, confirming that it mistakenly returns None due to incorrect logic on line 17."
+      ]
+    }
+  }
+]

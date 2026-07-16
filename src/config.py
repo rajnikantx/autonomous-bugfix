@@ -11,5 +11,6 @@ class Settings(BaseSettings):
     TRIAGE_MODEL: str = "gpt-4o"
     INVESTIGATE_MODEL: str = "gpt-4o"
     FIX_MODEL: str = "gpt-4o"
+    REVIEW_MODEL: str = "gpt-4o"
 
 settings = Settings()

@@ -1,0 +1,46 @@
+2026-07-15 22:34:01.921 | INFO     | src.graph.nodes.clone_project:clone_project:25 - creating sandbox
+2026-07-15 22:34:02.398 | INFO     | src.graph.nodes.clone_project:clone_project:31 - sandbox created successfully at /tmp/bugfix_hwk8rodn/test-repo
+2026-07-15 22:34:02.401 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:35 - generating pytest bug report at : /tmp/bugfix_hwk8rodn/test-repo/bug_report/pytest_bugreport.json
+2026-07-15 22:34:03.463 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:45 - Tests failed or non-zero exit — pytest bug report may contain failures
+2026-07-15 22:34:03.463 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:46 - pytest bug report generated at /tmp/bugfix_hwk8rodn/test-repo/bug_report/pytest_bugreport.json
+2026-07-15 22:34:03.508 | INFO     | src.agents.triage:json_bugs:79 - Extracting structured bug report via OpenAI Responses API
+2026-07-15 22:34:21.270 | INFO     | src.agents.triage:json_bugs:94 - Extracted 15 bug(s)
+2026-07-15 22:34:21.271 | INFO     | src.graph.nodes.triage:triage:62 - Created 15 bug(s)
+2026-07-15 22:34:21.271 | DEBUG    | src.graph.nodes.triage:triage:65 - triage output logged at logs/triage_output
+2026-07-15 22:34:21.274 | INFO     | src.graph.nodes.select_bug:select_bug:16 - active bug: test_add_positive :: tests/test_calculator.py
+2026-07-16 00:57:05.713 | INFO     | src.graph.nodes.clone_project:clone_project:25 - creating sandbox
+2026-07-16 00:57:06.173 | INFO     | src.graph.nodes.clone_project:clone_project:31 - sandbox created successfully at /tmp/bugfix_jem29zar/test-repo
+2026-07-16 00:57:06.175 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:35 - generating pytest bug report at : /tmp/bugfix_jem29zar/test-repo/bug_report/pytest_bugreport.json
+2026-07-16 00:57:07.244 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:45 - Tests failed or non-zero exit — pytest bug report may contain failures
+2026-07-16 00:57:07.244 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:46 - pytest bug report generated at /tmp/bugfix_jem29zar/test-repo/bug_report/pytest_bugreport.json
+2026-07-16 00:57:07.285 | INFO     | src.agents.triage:json_bugs:79 - Extracting structured bug report via OpenAI Responses API
+2026-07-16 00:57:24.428 | INFO     | src.agents.triage:json_bugs:94 - Extracted 15 bug(s)
+2026-07-16 00:57:24.428 | INFO     | src.graph.nodes.triage:triage:62 - Created 15 bug(s)
+2026-07-16 00:57:24.429 | DEBUG    | src.graph.nodes.triage:triage:65 - triage output logged at logs/triage_output
+2026-07-16 00:57:24.431 | INFO     | src.graph.nodes.select_bug:select_bug:16 - active bug: test_add_positive :: tests/test_calculator.py
+2026-07-16 00:57:24.433 | INFO     | src.graph.nodes.investigate:investigate_node:18 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-16 00:57:24.433 | INFO     | src.graph.nodes.investigate:investigate_node:28 - Active bug: id=test_add_positive :: tests/test_calculator.py, status=investigating, test=test_add_positive, file=tests/test_calculator.py, severity=medium
+2026-07-16 00:57:24.433 | INFO     | src.graph.nodes.investigate:investigate_node:34 - Investigating bug test_add_positive :: tests/test_calculator.py: test_add_positive
+2026-07-16 00:57:24.441 | INFO     | src.agents.investigate:investigate:366 - Investigating bug_id: test_add_positive :: tests/test_calculator.py
+2026-07-16 00:57:33.765 | INFO     | src.agents.investigate:investigate:411 - Investigation complete
+2026-07-16 00:57:39.814 | INFO     | src.graph.nodes.investigate:investigate_node:69 - Investigation result for test_add_positive :: tests/test_calculator.py: confidence=high, affected_files=['src/calculator.py'], root_cause=The `add` function uses the subtraction operator (`-`) instead of the addition operator (`+`), causing it to return the difference of two numbers instead of their sum.
+2026-07-16 00:57:39.814 | DEBUG    | src.graph.nodes.investigate:investigate_node:75 - Reasoning trace (3 steps): ['The test `test_add_positive` failed because the `add` function returned `-1` instead of `5` when called with arguments `2` and `3`.', 'Used `grep_codebase` to find the definition of `add`, locating it at line 4 in `src/calculator.py`.', 'Examined the `add` function implementation in `src/calculator.py`, finding that it incorrectly uses the `-` operator instead of `+` on line 6, which is the root cause of the failure.']
+2026-07-16 00:57:39.814 | INFO     | src.graph.nodes.investigate:investigate_node:82 - Bug test_add_positive :: tests/test_calculator.py -> patching. Affected files: ['src/calculator.py']
+2026-07-16 01:00:11.978 | INFO     | src.graph.nodes.clone_project:clone_project:25 - creating sandbox
+2026-07-16 01:00:12.446 | INFO     | src.graph.nodes.clone_project:clone_project:31 - sandbox created successfully at /tmp/bugfix_mc2tcgq3/test-repo
+2026-07-16 01:00:12.448 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:35 - generating pytest bug report at : /tmp/bugfix_mc2tcgq3/test-repo/bug_report/pytest_bugreport.json
+2026-07-16 01:00:13.546 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:45 - Tests failed or non-zero exit — pytest bug report may contain failures
+2026-07-16 01:00:13.547 | INFO     | src.graph.nodes.scan_bugs:scan_bugs:46 - pytest bug report generated at /tmp/bugfix_mc2tcgq3/test-repo/bug_report/pytest_bugreport.json
+2026-07-16 01:00:13.590 | INFO     | src.agents.triage:json_bugs:79 - Extracting structured bug report via OpenAI Responses API
+2026-07-16 01:00:28.335 | INFO     | src.agents.triage:json_bugs:94 - Extracted 15 bug(s)
+2026-07-16 01:00:28.336 | INFO     | src.graph.nodes.triage:triage:62 - Created 15 bug(s)
+2026-07-16 01:00:28.336 | DEBUG    | src.graph.nodes.triage:triage:65 - triage output logged at logs/triage_output
+2026-07-16 01:00:28.338 | INFO     | src.graph.nodes.select_bug:select_bug:16 - active bug: test_add_positive :: tests/test_calculator.py
+2026-07-16 01:00:28.340 | INFO     | src.graph.nodes.investigate:investigate_node:20 - investigate_node: state keys=['session_id', 'repo_path', 'sandbox_path', 'bugreport_path', 'bugs', 'active_bug']
+2026-07-16 01:00:28.341 | INFO     | src.graph.nodes.investigate:investigate_node:30 - Active bug: id=test_add_positive :: tests/test_calculator.py, status=investigating, test=test_add_positive, file=tests/test_calculator.py, severity=medium
+2026-07-16 01:00:28.341 | INFO     | src.graph.nodes.investigate:investigate_node:36 - Investigating bug test_add_positive :: tests/test_calculator.py: test_add_positive
+2026-07-16 01:00:28.348 | INFO     | src.agents.investigate:investigate:366 - Investigating bug_id: test_add_positive :: tests/test_calculator.py
+2026-07-16 01:00:34.398 | INFO     | src.agents.investigate:investigate:411 - Investigation complete
+2026-07-16 01:00:37.990 | INFO     | src.graph.nodes.investigate:investigate_node:74 - Investigation result for test_add_positive :: tests/test_calculator.py: confidence=high, affected_files=['src/calculator.py'], root_cause=The `add` function is incorrectly using the subtraction operator (`-`) instead of the addition operator (`+`).
+2026-07-16 01:00:37.990 | DEBUG    | src.graph.nodes.investigate:investigate_node:80 - Reasoning trace (4 steps): ['The `test_add_positive` is failing because the `add` function returns `-1` for input `(2, 3)` instead of `5`.', 'The `add` function is located in `src/calculator.py` at line 4.', 'Examined the implementation of `add`, which revealed the use of the subtraction operator `-` instead of `+`.', 'Concluded that using the wrong operator in the `add` function is the root cause of the test failure.']
+2026-07-16 01:00:37.990 | INFO     | src.graph.nodes.investigate:investigate_node:87 - Bug test_add_positive :: tests/test_calculator.py -> patching. Affected files: ['src/calculator.py']

@@ -4,7 +4,6 @@ from loguru import logger
 from langsmith import traceable
 
 from src.graph.states import AgentState
-from src.step_logger import save_step_output
 
 BUG_REPORT_DIR= "bug_report"
 PYTEST_BUGREPORT_FILE= "pytest_bugreport.json"
@@ -49,14 +48,7 @@ def scan_bugs(state: AgentState):
     except Exception as e:
         logger.exception(f"failed pytest bug report generation for {sandbox_path}")
 
-    result = {
+    return {
         **state,
         "bugreport_path": str(bugreport_path)
     }
-
-    save_step_output(state["session_id"], "scan_bugs", {
-        "sandbox_path": sandbox_path,
-        "bugreport_path": str(bugreport_path),
-    })
-
-    return result
